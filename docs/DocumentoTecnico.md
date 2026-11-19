@@ -233,6 +233,8 @@ Los criterios SEC-01 a SEC-10 están implementados. Sus pruebas (`SeguridadTest`
 
 ## 7. Decisiones de diseño y sus motivos
 
+Las decisiones principales tienen su ADR, con el contexto y las alternativas evaluadas, en [adr/](adr/README.md). La tabla las resume junto con otras decisiones menores.
+
 | Decisión | Alternativa descartada | Motivo |
 |---|---|---|
 | Token de acceso corto (15 min) y refresh rotativo | Un solo JWT de larga duración | El backend puede reiniciarse o multiplicarse sin perder sesiones. Un token robado sirve poco tiempo, y cerrar sesión o cambiar la contraseña revocan de verdad la sesión |
