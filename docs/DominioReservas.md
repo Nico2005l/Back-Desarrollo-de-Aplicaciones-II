@@ -1,7 +1,7 @@
 # Planta Libre — Dominio de reservas
 
 **Catálogo de espacios, motor de disponibilidad, reservas y bloqueos**
-Complementa al [documento técnico de la entrega N.º 1](DocumentoTecnico.md), que cubre identidad, usuarios y medios de pago.
+Complementa al [documento técnico](DocumentoTecnico.md), que describe la arquitectura, los demás componentes y la seguridad, y a la [arquitectura de integración](Integracion.md), que cubre el cobro asincrónico.
 
 ---
 
@@ -26,14 +26,14 @@ Las pantallas siguen los wireframes 3 a 14 y los estados E1 a E5 del canvas de d
 
 ---
 
-## 2. Dos componentes nuevos
+## 2. Componentes
 
-Se agregan en la misma arquitectura en capas y con las mismas reglas de dependencia que los tres anteriores.
+Siguen la misma arquitectura en capas y las mismas reglas de dependencia que identidad, usuarios y medios de pago.
 
 | Componente | Presentación | Negocio | Datos |
 |---|---|---|---|
-| **Catálogo** | `CatalogoController`, `CatalogoDTOs` | `CatalogoService` con `CatalogoServiceImpl` | `EmpresaRepository`, `EdificioRepository`, `PisoRepository`, `EspacioRepository`, `ServicioPisoRepository` |
-| **Reservas** | `ReservaController`, `AdminReservaController`, `BloqueoController`, `ReservaDTOs` | `ReservaService`, `AdminReservaService`, `BloqueoService`, `MotorDisponibilidad`, `ReglasReserva` | `ReservaRepository`, `BloqueoRepository`, entidades `Reserva`, `ReservaCambio`, `Bloqueo` |
+| **Catálogo** | `CatalogoController`, `CatalogoDTOs` | `CatalogoService` con `CatalogoServiceImpl` | `EmpresaRepository`, `EdificioRepository`, `PisoRepository`, `EspacioRepository`, `AreaPlanoRepository`, `ServicioPisoRepository` |
+| **Reservas** | `ReservaController`, `AdminReservaController`, `BloqueoController`, `ReservaDTOs` | `ReservaService`, `AdminReservaService`, `BloqueoService`, `MotorDisponibilidad`, `ReglasReserva`, `TomaDeFranja`, `Cancelaciones`, `EstadoReserva` | `ReservaRepository`, `BloqueoRepository`, entidades `Reserva`, `ReservaCambio`, `Bloqueo` |
 
 **Catálogo** es solo lectura: la jerarquía de navegación, el plano de cada piso y el detalle de cada espacio, con la disponibilidad ya calculada para la franja pedida. **Reservas** es la parte que escribe: crear, cancelar, mover y borrar reservas, y crear y quitar bloqueos.
 
@@ -97,7 +97,20 @@ La reserva se cobra al hacerla (el cobro asincrónico de [Integracion.md](Integr
 
 Una reserva ya empezada no se cancela. Una pendiente (todavía sin cobrar) se cancela sin costo, y el cobro que estaba en la cola ya no se hace. Los valores viven en `PoliticaCancelacion` y llegan al front en `condiciones`: el paso de confirmación muestra el total y la política, y el diálogo de cancelar dice cuánto se devuelve en ese momento.
 
-Todas las cancelaciones pasan por un mismo componente, `Cancelaciones`, dentro de la transacción de quien cancela y con la fila de la reserva bloqueada. Calcula el porcentaje, pide el reintegro a la pasarela, marca la reserva y publica `ReservaCancelada` para el mail. **Si la pasarela rechaza el reintegro, la transacción hace rollback y la reserva sigue activa**: nunca queda una reserva cancelada con la plata sin devolver. Cada cobro se reintegra una sola vez (`cobros.monto_reintegrado`, migración V17).
+Todas las cancelaciones pasan por un mismo componente, `Cancelaciones`, dentro de la transacción de quien cancela y con la fila de la reserva bloqueada. Calcula el porcentaje, pide el reintegro a la pasarela, marca la reserva y publica `ReservaCancelada` para el mail.
+
+**Si la pasarela rechaza el reintegro o no responde en 5 s, la transacción hace rollback y la reserva sigue activa**: nunca queda una reserva cancelada con la plata sin devolver. Un rechazo responde `409`. La falta de respuesta responde `503` con `Retry-After` ([Integracion.md](Integracion.md), sección 5). Cada cobro se reintegra una sola vez (`cobros.monto_reintegrado`, migración V17).
+
+### Estados de una reserva (patrón State)
+
+`EstadoReserva` define qué transiciones permite cada estado; cualquier otra responde `409` con código `TRANSICION_INVALIDA` antes de cualquier efecto.
+
+| Desde | Puede pasar a |
+|---|---|
+| `PENDIENTE` | `CONFIRMADA` (cobro aprobado o confirmación del administrador), `CANCELADA` |
+| `CONFIRMADA` | `CANCELADA` |
+| `CANCELADA` | ninguno |
+| `FINALIZADA` (derivado, ver la sección 6) | ninguno |
 
 ---
 
@@ -142,10 +155,10 @@ Los huecos se llenan según dónde caen: entre los puestos, una cabina telefóni
 Si un piso no entra en su disposición (por ejemplo, 14 cubículos y 3 salas no caben en un núcleo central), el generador prueba con la siguiente y lo informa. El resultado es una migración (`V15`, después `V16`) que actualiza posiciones, ventanas y textos de todos los pisos **sin cambiar ids ni códigos**: las reservas y los bloqueos existentes siguen apuntando a los mismos espacios. Una migración ya aplicada no se vuelve a escribir, porque Flyway rechaza el cambio: cada cambio de disposiciones va a la versión siguiente. Por eso la `V12` y la `V15` quedan como están.
 
 ```bash
-python3 scripts/generar_disposiciones.py V17 --ascii
+python3 scripts/generar_disposiciones.py V30 --ascii
 ```
 
-escribe la próxima migración y dibuja cada piso en texto, para revisarlo sin levantar la aplicación.
+escribe la próxima migración (hoy la última es la V29) y dibuja cada piso en texto, para revisarlo sin levantar la aplicación.
 
 **Para agregar una disposición:** crear un módulo en `scripts/disposiciones/` con `CODIGO`, `ETIQUETA` y `disponer(piso)`, registrarlo en `disposiciones/__init__.py`, sumar el código y su nombre en `Disposicion.java`, y asignarlo a los edificios en `ASIGNACION`. El back y el front no cambian.
 
@@ -165,12 +178,27 @@ escribe la próxima migración y dibuja cada piso en texto, para revisarlo sin l
 | GET, POST, PUT, DELETE | `/api/admin/reservas`, `/api/admin/agenda`, `/api/admin/clientes` | `RESERVAS_GESTIONAR` |
 | GET, POST, DELETE | `/api/admin/bloqueos` | `BLOQUEOS_GESTIONAR` |
 
+**Cabeceras de la API:**
+
+- **`Idempotency-Key`:** la aceptan `POST /api/reservas` y `POST /api/admin/reservas`. Un pedido repetido con la misma clave devuelve la primera respuesta y no crea otra reserva.
+- **`ETag`:** lo devuelve `GET /api/reservas/{id}`.
+- **`If-Match`:** lo acepta `PUT /api/admin/reservas/{id}`. Responde `412` si otro administrador cambió la reserva en el medio.
+
+**Errores:** todos responden en Problem Details (RFC 9457). El contrato completo se publica en `/v3/api-docs`. El detalle está en [Integracion.md](Integracion.md), sección 5.
+
 ---
 
 ## 9. Verificación
 
-- **Tests unitarios** del motor y de las reglas (`MotorDisponibilidadTest`, `ReglasReservaTest`): contigüidad, envolvimiento, edición sin autochoque, prioridad del bloqueo, huecos, fin de semana, alternativas y sugerencias. Junto con los anteriores, 25 tests en verde.
-- **Prueba de concurrencia** de diez reservas simultáneas sobre la misma franja: una se crea, nueve reciben `409`.
+- **Tests unitarios** del motor, de las reglas y de los estados:
+  - `MotorDisponibilidadTest` y `ReglasReservaTest`: contigüidad, envolvimiento, edición sin autochoque, prioridad del bloqueo, huecos, fin de semana, alternativas y sugerencias.
+  - `EstadoReservaTest`: cada transición, válida e inválida.
+  - `PoliticaCancelacionTest` y `CancelacionesTest`: porcentajes de reintegro.
+- **Tests de integración** contra PostgreSQL real (Testcontainers):
+  - `ReservasClienteIntegracionTest`, `AdminReservasIntegracionTest`, `BloqueosIntegracionTest`, `TransicionesReservaIntegracionTest` y `ReservaRepositoryIntegracionTest`;
+  - `IdempotenciaIntegracionTest` y `EtagIntegracionTest`.
+  - El inventario completo y las métricas están en el [plan de pruebas](PlanDePruebas.md).
+- **Prueba de concurrencia** (manual) de diez reservas simultáneas sobre la misma franja: una se crea, nueve reciben `409`.
 - **Recorrido de punta a punta** en el navegador: elegir franja arrastrando en el calendario, confirmar, ver el aviso en Mis reservas; franja tomada mientras se confirmaba; piso sin lugares; filtros sin resultados; mover una reserva arrastrándola como administrador.
 
 ---
@@ -179,4 +207,3 @@ escribe la próxima migración y dibuja cada piso en texto, para revisarlo sin l
 
 - La liberación automática por no presentarse (no-show) necesita un check-in, que no existe.
 - No hay reservas recurrentes ni invitados.
-- El refresco de sesión sigue pendiente: al vencer el token, el usuario vuelve a iniciar sesión.

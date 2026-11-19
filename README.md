@@ -4,7 +4,7 @@ Sistema de reserva de espacios de trabajo. API REST en Spring Boot 3 (Java 21), 
 Flyway, cobro asincrónico por RabbitMQ y autenticación con JWT.
 
 - Frontend: [Front-Desarrollo-de-Aplicaciones-II](https://github.com/pedroberro/Front-Desarrollo-de-Aplicaciones-II)
-- Documentación: [docs/DocumentoTecnico.md](docs/DocumentoTecnico.md) · [docs/Integracion.md](docs/Integracion.md) · [docs/DominioReservas.md](docs/DominioReservas.md)
+- Documentación: [docs/DocumentoTecnico.md](docs/DocumentoTecnico.md) · [docs/Integracion.md](docs/Integracion.md) · [docs/DominioReservas.md](docs/DominioReservas.md) · [docs/PlanDePruebas.md](docs/PlanDePruebas.md) · [docs/ManualDeUsuario.md](docs/ManualDeUsuario.md)
 
 ## Levantar el sistema completo
 
