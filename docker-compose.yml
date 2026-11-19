@@ -70,9 +70,11 @@ services:
       - secretos:/secretos:ro
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # Healthy only once both listeners answer: the node answers ping before the management API
+      # (used by rabbitmq-usuarios) and the TLS port (used by the app) are open.
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_port_listener 15672 && rabbitmq-diagnostics -q check_port_listener 5671"]
       interval: 5s
-      retries: 20
+      retries: 30
 
   # One-shot: creates the vhost and the app account with minimal permissions, then exits.
   rabbitmq-usuarios:
