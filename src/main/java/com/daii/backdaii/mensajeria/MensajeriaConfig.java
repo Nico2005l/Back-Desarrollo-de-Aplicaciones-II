@@ -3,9 +3,12 @@ package com.daii.backdaii.mensajeria;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Declarable;
+import org.springframework.amqp.core.Declarables;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +17,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Broker topology, declared by the app on startup (RabbitAdmin creates what is missing).
  * Only active with app.mensajeria.habilitada=true: without a broker, bookings stay PENDIENTE
@@ -21,7 +27,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @Configuration
 @ConditionalOnProperty(name = "app.mensajeria.habilitada", havingValue = "true")
-// For the charge sweep (ProgramadorBarridoCobros).
+// For the charge sweep (ProgramadorBarridoCobros) and the outbox relay (ProgramadorRelayEventos).
 @EnableScheduling
 public class MensajeriaConfig {
 
@@ -57,6 +63,35 @@ public class MensajeriaConfig {
     @Bean
     Binding dlqAlExchange() {
         return BindingBuilder.bind(colaCobrosDlq()).to(exchangeDlx()).with(Colas.COBROS_DLQ);
+    }
+
+    // Topic of the domain events and its subscribers: mail, building access control and audit.
+
+    @Bean
+    TopicExchange exchangeEventos() {
+        return new TopicExchange(Colas.EXCHANGE_EVENTOS);
+    }
+
+    @Bean
+    Declarables suscriptoresDeEventos() {
+        List<Declarable> objetos = new ArrayList<>();
+        suscriptor(objetos, Colas.AVISOS, Colas.RESERVA_CONFIRMADA);
+        suscriptor(objetos, Colas.CONTROL_ACCESO, Colas.RESERVA_CONFIRMADA);
+        suscriptor(objetos, Colas.AUDITORIA, Colas.TODO_RESERVA);
+        return new Declarables(objetos);
+    }
+
+    /** A durable queue bound to the topic with its pattern, and its own dead-letter queue. */
+    private void suscriptor(List<Declarable> objetos, String nombre, String patron) {
+        Queue cola = QueueBuilder.durable(nombre)
+                .deadLetterExchange(Colas.EXCHANGE_DLX)
+                .deadLetterRoutingKey(Colas.dlq(nombre))
+                .build();
+        Queue dlq = QueueBuilder.durable(Colas.dlq(nombre)).build();
+        objetos.add(cola);
+        objetos.add(dlq);
+        objetos.add(BindingBuilder.bind(cola).to(exchangeEventos()).with(patron));
+        objetos.add(BindingBuilder.bind(dlq).to(exchangeDlx()).with(Colas.dlq(nombre)));
     }
 
     /**

@@ -51,6 +51,8 @@ spring:
     # Publishing runs right after the booking commits, before the HTTP response: an unreachable
     # broker must fail fast instead of holding the request for the client's default 60 s.
     connection-timeout: 5s
+    # Publisher confirms: the outbox relay marks an event as sent only once the broker took it.
+    publisher-confirm-type: simple
     listener:
       simple:
         # A message whose processing fails is not put back at the head of the queue forever:
@@ -100,6 +102,12 @@ app:
       cada-ms: ${MENSAJERIA_BARRIDO_CADA_MS:60000}
       espera-segundos: ${MENSAJERIA_BARRIDO_ESPERA_SEGUNDOS:120}
       max-reencolados: ${MENSAJERIA_BARRIDO_MAX_REENCOLADOS:3}
+    # Transactional outbox of the topic planta-libre.eventos (RelayEventos): pending events are
+    # published every cada-ms; published ones are deleted after conservar-dias.
+    outbox:
+      cada-ms: ${MENSAJERIA_OUTBOX_CADA_MS:2000}
+      confirmacion-ms: ${MENSAJERIA_OUTBOX_CONFIRMACION_MS:5000}
+      conservar-dias: ${MENSAJERIA_OUTBOX_CONSERVAR_DIAS:7}
 
   pasarela:
     # Response time of the simulated payment provider, so the PENDIENTE state is visible in a demo.

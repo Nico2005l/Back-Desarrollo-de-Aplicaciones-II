@@ -9,6 +9,7 @@ import com.daii.backdaii.domain.entity.Reserva;
 import com.daii.backdaii.domain.enums.EstadoCobro;
 import com.daii.backdaii.domain.enums.EstadoReserva;
 import com.daii.backdaii.domain.evento.CobroResuelto;
+import com.daii.backdaii.domain.evento.ReservaConfirmada;
 import com.daii.backdaii.domain.repository.CobroRepository;
 import com.daii.backdaii.domain.repository.MensajeProcesadoRepository;
 import com.daii.backdaii.domain.repository.MedioPagoRepository;
@@ -93,10 +94,17 @@ public class CobroServiceImpl implements CobroService {
         reserva.cambiarEstado(resultado.aprobado() ? EstadoReserva.CONFIRMADA : EstadoReserva.CANCELADA);
         log.info("Reserva {}: cobro {} por {}", reserva.getCodigo(), resultado.aprobado() ? "aprobado" : "rechazado", monto);
 
-        eventos.publishEvent(new CobroResuelto(reserva.getId(), reserva.getCodigo(),
-                Vistas.describir(reserva.getEspacio(), franja), reserva.getUsuario().getEmail(),
-                reserva.getUsuario().getNombre(), monto, medio == null ? null : ultimos4(medio),
-                resultado.aprobado(), resultado.motivoRechazo()));
+        String descripcion = Vistas.describir(reserva.getEspacio(), franja);
+        eventos.publishEvent(new CobroResuelto(reserva.getId(), reserva.getCodigo(), descripcion,
+                reserva.getUsuario().getEmail(), reserva.getUsuario().getNombre(), monto,
+                medio == null ? null : ultimos4(medio), resultado.aprobado(), resultado.motivoRechazo()));
+        if (resultado.aprobado()) {
+            // To the topic, through the outbox: mail, access control and audit react to it.
+            eventos.publishEvent(new ReservaConfirmada(reserva.getId(), reserva.getCodigo(), descripcion,
+                    reserva.getEspacio().getCodigo(), reserva.getInicio(), reserva.getFin(),
+                    reserva.getUsuario().getEmail(), reserva.getUsuario().getNombre(),
+                    ReservaConfirmada.Origen.COBRO, monto, ultimos4(medio)));
+        }
     }
 
     /** The card chosen when booking, if it still exists; otherwise the customer's main card. */

@@ -30,7 +30,7 @@ class MonitorDlq {
     private final AuditoriaService auditoria;
     private final EmailService emailService;
     private final String emailAlertas;
-    private final AtomicLong ultimaCantidad = new AtomicLong(0);
+    private final java.util.Map<String, AtomicLong> ultimaCantidad = new java.util.concurrent.ConcurrentHashMap<>();
 
     MonitorDlq(AmqpAdmin admin, AuditoriaService auditoria, EmailService emailService,
                @Value("${app.alertas.email:}") String emailAlertas) {
@@ -43,27 +43,33 @@ class MonitorDlq {
     @Scheduled(initialDelayString = "${app.mensajeria.dlq.revisar-cada-ms:30000}",
             fixedDelayString = "${app.mensajeria.dlq.revisar-cada-ms:30000}")
     public void revisar() {
-        QueueInformation info;
-        try {
-            info = admin.getQueueInfo(Colas.COBROS_DLQ);
-        } catch (RuntimeException e) {
-            log.warn("No se pudo revisar la DLQ: {}", e.getMessage());
-            return;
-        }
-        long cantidad = info == null ? 0 : info.getMessageCount();
-        long anterior = ultimaCantidad.getAndSet(cantidad);
-        if (cantidad > anterior) {
-            alertar(cantidad - anterior, cantidad);
+        for (String dlq : Colas.DLQS) {
+            revisar(dlq);
         }
     }
 
-    void alertar(long nuevos, long total) {
-        String detalle = nuevos + " mensaje(s) nuevo(s) en " + Colas.COBROS_DLQ + " (" + total + " en total)";
-        log.error("ALERTA: {}. Revisar los cobros que no se pudieron procesar.", detalle);
+    private void revisar(String dlq) {
+        QueueInformation info;
+        try {
+            info = admin.getQueueInfo(dlq);
+        } catch (RuntimeException e) {
+            log.warn("No se pudo revisar la DLQ {}: {}", dlq, e.getMessage());
+            return;
+        }
+        long cantidad = info == null ? 0 : info.getMessageCount();
+        long anterior = ultimaCantidad.computeIfAbsent(dlq, k -> new AtomicLong()).getAndSet(cantidad);
+        if (cantidad > anterior) {
+            alertar(dlq, cantidad - anterior, cantidad);
+        }
+    }
+
+    void alertar(String dlq, long nuevos, long total) {
+        String detalle = nuevos + " mensaje(s) nuevo(s) en " + dlq + " (" + total + " en total)";
+        log.error("ALERTA: {}. Revisar los mensajes que no se pudieron procesar.", detalle);
         auditoria.registrar(EventoAuditoria.MENSAJE_EN_DLQ, ResultadoAuditoria.FALLO, null, detalle);
         if (!emailAlertas.isBlank()) {
             emailService.sendAlerta(emailAlertas, "Mensajes en la cola de mensajes muertos",
-                    detalle + ".\n\nSon cobros que agotaron los reintentos o llegaron con firma inválida. "
+                    detalle + ".\n\nSon mensajes que agotaron los reintentos o llegaron con firma inválida. "
                             + "Se pueden revisar en la consola de RabbitMQ.");
         }
     }

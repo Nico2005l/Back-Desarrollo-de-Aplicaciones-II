@@ -94,9 +94,14 @@ class CobroServiceImplTest {
     }
 
     private CobroResuelto eventoPublicado() {
-        ArgumentCaptor<CobroResuelto> evento = ArgumentCaptor.forClass(CobroResuelto.class);
-        verify(eventos).publishEvent(evento.capture());
-        return evento.getValue();
+        return eventos(CobroResuelto.class).stream().findFirst().orElseThrow();
+    }
+
+    /** Every event of that type the charge published, in order. */
+    private <T> java.util.List<T> eventos(Class<T> tipo) {
+        ArgumentCaptor<Object> evento = ArgumentCaptor.forClass(Object.class);
+        verify(eventos, org.mockito.Mockito.atLeastOnce()).publishEvent(evento.capture());
+        return evento.getAllValues().stream().filter(tipo::isInstance).map(tipo::cast).toList();
     }
 
     @Test
@@ -117,6 +122,16 @@ class CobroServiceImplTest {
         assertThat(cobro.getReferencia()).isEqualTo("SIM-1");
         assertThat(cobro.getMedioPago()).isSameAs(visa);
         assertThat(eventoPublicado().aprobado()).isTrue();
+        // And the topic event, with what its subscribers need.
+        assertThat(eventos(com.daii.backdaii.domain.evento.ReservaConfirmada.class)).singleElement().satisfies(c -> {
+            assertThat(c.reservaId()).isEqualTo(7L);
+            assertThat(c.codigoEspacio()).isEqualTo("C-101");
+            assertThat(c.origen()).isEqualTo(com.daii.backdaii.domain.evento.ReservaConfirmada.Origen.COBRO);
+            assertThat(c.monto()).isEqualByComparingTo("7000");
+            assertThat(c.ultimos4()).isEqualTo("4242");
+            assertThat(c.inicio()).isEqualTo(INICIO);
+            assertThat(c.email()).isEqualTo("ana@example.com");
+        });
     }
 
     @Test
@@ -133,6 +148,7 @@ class CobroServiceImplTest {
         CobroResuelto evento = eventoPublicado();
         assertThat(evento.aprobado()).isFalse();
         assertThat(evento.motivoRechazo()).isEqualTo("Fondos insuficientes");
+        assertThat(eventos(com.daii.backdaii.domain.evento.ReservaConfirmada.class)).isEmpty();
     }
 
     @Test

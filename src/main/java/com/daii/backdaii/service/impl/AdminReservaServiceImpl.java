@@ -13,6 +13,7 @@ import com.daii.backdaii.domain.enums.EventoAuditoria;
 import com.daii.backdaii.domain.enums.ResultadoAuditoria;
 import com.daii.backdaii.domain.enums.Rol;
 import com.daii.backdaii.domain.evento.ReservaCancelada;
+import com.daii.backdaii.domain.evento.ReservaConfirmada;
 import com.daii.backdaii.domain.evento.ReservaCreada;
 import com.daii.backdaii.domain.repository.BloqueoRepository;
 import com.daii.backdaii.domain.repository.CobroRepository;
@@ -218,6 +219,12 @@ public class AdminReservaServiceImpl implements AdminReservaService {
             cancelaciones.cancelar(reserva, ReservaCancelada.Motivo.ADMINISTRADOR, motivo);
         } else if (estado != reserva.getEstado()) {
             reserva.cambiarEstado(estado);
+            if (estado == EstadoReserva.CONFIRMADA) {
+                // Same event as an approved charge: access control and audit react to it.
+                eventos.publishEvent(new ReservaConfirmada(reserva.getId(), reserva.getCodigo(),
+                        Vistas.describir(espacio, franja), espacio.getCodigo(), franja.inicio(), franja.fin(),
+                        cliente.getEmail(), cliente.getNombre(), ReservaConfirmada.Origen.ADMINISTRADOR, null, null));
+            }
         }
         tomaDeFranja.guardar(() -> reservaRepository.saveAndFlush(reserva));
         auditoria.registrar(EventoAuditoria.RESERVA_EDITADA_POR_ADMIN, ResultadoAuditoria.EXITO, adminEmail,

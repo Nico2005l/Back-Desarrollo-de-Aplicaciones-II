@@ -32,7 +32,41 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** The administrator's booking screens: list with filters, floor agenda, create, edit and delete. */
+@org.springframework.test.context.event.RecordApplicationEvents
 class AdminReservasIntegracionTest extends IntegracionBase {
+
+    @Autowired
+    private org.springframework.test.context.event.ApplicationEvents eventosPublicados;
+
+    @Test
+    void confirmarAManoPublicaReservaConfirmadaConOrigenAdministrador() throws Exception {
+        Reserva reserva = escenario.reservaEn(cliente, espacio, escenario.franjaReservable(), EstadoReserva.PENDIENTE);
+
+        guardar(put("/api/admin/reservas/" + reserva.getId()), cliente.getId(), espacio.getId(), reserva.getInicio(),
+                EstadoReserva.CONFIRMADA, MOTIVO)
+                .andExpect(status().isOk());
+
+        assertThat(eventosPublicados.stream(com.daii.backdaii.domain.evento.ReservaConfirmada.class))
+                .singleElement()
+                .satisfies(e -> {
+                    assertThat(e.reservaId()).isEqualTo(reserva.getId());
+                    assertThat(e.origen()).isEqualTo(com.daii.backdaii.domain.evento.ReservaConfirmada.Origen.ADMINISTRADOR);
+                    assertThat(e.codigoEspacio()).isEqualTo(espacio.getCodigo());
+                    assertThat(e.email()).isEqualTo(cliente.getEmail());
+                    assertThat(e.monto()).isNull();
+                });
+    }
+
+    @Test
+    void moverUnaReservaSinConfirmarlaNoPublicaReservaConfirmada() throws Exception {
+        Reserva reserva = escenario.reservaEn(cliente, espacio, escenario.franjaReservable(), EstadoReserva.CONFIRMADA);
+
+        guardar(put("/api/admin/reservas/" + reserva.getId()), cliente.getId(), espacio.getId(), escenario.franjaReservable(),
+                EstadoReserva.CONFIRMADA, MOTIVO)
+                .andExpect(status().isOk());
+
+        assertThat(eventosPublicados.stream(com.daii.backdaii.domain.evento.ReservaConfirmada.class)).isEmpty();
+    }
 
     private static final String MOTIVO = "Pedido del cliente por telefono";
 
