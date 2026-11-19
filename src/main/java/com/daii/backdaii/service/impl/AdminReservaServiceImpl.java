@@ -30,6 +30,7 @@ import com.daii.backdaii.dto.reserva.ReservaDTOs.ReservaDTO;
 import com.daii.backdaii.exception.BadRequestException;
 import com.daii.backdaii.exception.NotFoundException;
 import com.daii.backdaii.service.AdminReservaService;
+import com.daii.backdaii.service.Precondicion;
 import com.daii.backdaii.service.AuditoriaService;
 import com.daii.backdaii.service.EmailService;
 import jakarta.persistence.criteria.Path;
@@ -146,8 +147,10 @@ public class AdminReservaServiceImpl implements AdminReservaService {
 
     @Override
     @Transactional
-    public ReservaDTO actualizar(String adminEmail, Long id, AdminReservaRequest request) {
-        reservaRepository.findBloqueadaById(id); // waits for a charge in flight, see CobroServiceImpl
+    public ReservaDTO actualizar(String adminEmail, Long id, AdminReservaRequest request, Precondicion precondicion) {
+        // Waits for a charge in flight (see CobroServiceImpl); with the row locked, the version
+        // compared against If-Match cannot change before this update commits.
+        reservaRepository.findBloqueadaById(id).ifPresent(r -> precondicion.verificar(r.getVersion()));
         Reserva reserva = reservaRepository.findDetalleById(id)
                 .orElseThrow(() -> new NotFoundException("Reserva no encontrada"));
         Usuario admin = usuario(adminEmail);

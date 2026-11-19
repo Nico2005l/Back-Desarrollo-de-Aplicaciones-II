@@ -9,7 +9,12 @@ public interface UsuarioService {
 
     UsuarioDTO getMe(String email);
 
-    UsuarioDTO updateMe(String email, UpdateMeRequest request);
+    default UsuarioDTO updateMe(String email, UpdateMeRequest request) {
+        return updateMe(email, request, Precondicion.NINGUNA);
+    }
+
+    /** Applies the change only if the profile is still in a version the client expected (If-Match). */
+    UsuarioDTO updateMe(String email, UpdateMeRequest request, Precondicion precondicion);
 
     List<UsuarioDTO> listar();
 }

@@ -24,7 +24,12 @@ public interface AdminReservaService {
     /** Books on behalf of a customer. Starts PENDIENTE, like a customer's own booking. */
     ReservaDTO crear(String adminEmail, AdminReservaRequest request);
 
-    ReservaDTO actualizar(String adminEmail, Long id, AdminReservaRequest request);
+    default ReservaDTO actualizar(String adminEmail, Long id, AdminReservaRequest request) {
+        return actualizar(adminEmail, id, request, Precondicion.NINGUNA);
+    }
+
+    /** Applies the change only if the booking is still in a version the client expected (If-Match). */
+    ReservaDTO actualizar(String adminEmail, Long id, AdminReservaRequest request, Precondicion precondicion);
 
     void eliminar(String adminEmail, Long id);
 

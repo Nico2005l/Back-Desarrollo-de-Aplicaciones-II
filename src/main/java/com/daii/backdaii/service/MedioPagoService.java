@@ -12,7 +12,15 @@ public interface MedioPagoService {
 
     List<MedioPagoResumen> listar(String email);
 
-    MedioPagoResumen actualizar(String email, Long id, MedioPagoUpdateRequest request);
+    /** One of the user's cards; 404 if it is someone else's. */
+    MedioPagoResumen obtener(String email, Long id);
+
+    default MedioPagoResumen actualizar(String email, Long id, MedioPagoUpdateRequest request) {
+        return actualizar(email, id, request, Precondicion.NINGUNA);
+    }
+
+    /** Applies the change only if the card is still in a version the client expected (If-Match). */
+    MedioPagoResumen actualizar(String email, Long id, MedioPagoUpdateRequest request, Precondicion precondicion);
 
     /** Makes the card the user's primary one and returns the updated list. */
     List<MedioPagoResumen> marcarPrincipal(String email, Long id);

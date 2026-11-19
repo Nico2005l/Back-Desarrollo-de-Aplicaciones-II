@@ -5,6 +5,11 @@ import com.daii.backdaii.dto.reserva.ReservaDTOs.CrearReservaRequest;
 import com.daii.backdaii.dto.reserva.ReservaDTOs.MisReservas;
 import com.daii.backdaii.dto.reserva.ReservaDTOs.ReservaDTO;
 import com.daii.backdaii.service.ReservaService;
+import com.daii.backdaii.service.Versiones;
+import com.daii.backdaii.web.Idempotente;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,9 +26,13 @@ import org.springframework.web.bind.annotation.*;
 public class ReservaController {
 
     private final ReservaService reservaService;
+    private final Versiones versiones;
 
     @PostMapping
     @PreAuthorize("hasAuthority('RESERVAS_CREAR')")
+    @Idempotente
+    @Parameter(in = ParameterIn.HEADER, name = Idempotente.CABECERA, description = Idempotente.DESCRIPCION,
+            schema = @Schema(type = "string", pattern = Etags.PATRON_CLAVE))
     public ResponseEntity<ReservaDTO> crear(@AuthenticationPrincipal UserDetails user,
                                             @Valid @RequestBody CrearReservaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reservaService.crear(user.getUsername(), request));
@@ -40,7 +49,8 @@ public class ReservaController {
     public ResponseEntity<ReservaDTO> detalle(@AuthenticationPrincipal UserDetails user, @PathVariable Long id) {
         boolean esAdmin = user.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals(Permiso.RESERVAS_VER_TODAS.name()));
-        return ResponseEntity.ok(reservaService.detalle(user.getUsername(), id, esAdmin));
+        ReservaDTO reserva = reservaService.detalle(user.getUsername(), id, esAdmin);
+        return ResponseEntity.ok().eTag(Etags.de(versiones.reserva(id))).body(reserva);
     }
 
     @PatchMapping("/{id}/cancelar")

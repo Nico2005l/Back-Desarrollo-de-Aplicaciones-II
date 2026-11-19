@@ -24,6 +24,10 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Incremented by the database on every update (migration V28); served as the ETag. */
+    @Column(insertable = false, updatable = false)
+    private Long version;
+
     @Column(name = "public_id", nullable = false, unique = true, updatable = false)
     @Builder.Default
     private UUID publicId = UUID.randomUUID();

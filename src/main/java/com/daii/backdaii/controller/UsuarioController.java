@@ -3,8 +3,11 @@ package com.daii.backdaii.controller;
 import com.daii.backdaii.dto.usuario.UpdateMeRequest;
 import com.daii.backdaii.dto.usuario.UsuarioDTO;
 import com.daii.backdaii.service.UsuarioService;
+import com.daii.backdaii.service.Versiones;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +23,7 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final Versiones versiones;
 
     // Sensitive: exposes every account. Declarative rule, checked by Spring Security before the method runs.
     @GetMapping
@@ -30,12 +34,16 @@ public class UsuarioController {
 
     @GetMapping("/me")
     public ResponseEntity<UsuarioDTO> me(@AuthenticationPrincipal UserDetails user) {
-        return ResponseEntity.ok(usuarioService.getMe(user.getUsername()));
+        UsuarioDTO yo = usuarioService.getMe(user.getUsername());
+        return ResponseEntity.ok().eTag(Etags.de(versiones.usuario(user.getUsername()))).body(yo);
     }
 
     @PatchMapping("/me")
     public ResponseEntity<UsuarioDTO> updateMe(@AuthenticationPrincipal UserDetails user,
+                                               @Parameter(description = Etags.DESCRIPCION_IF_MATCH)
+                                               @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
                                                @Valid @RequestBody UpdateMeRequest request) {
-        return ResponseEntity.ok(usuarioService.updateMe(user.getUsername(), request));
+        UsuarioDTO yo = usuarioService.updateMe(user.getUsername(), request, Etags.precondicion(ifMatch));
+        return ResponseEntity.ok().eTag(Etags.de(versiones.usuario(user.getUsername()))).body(yo);
     }
 }

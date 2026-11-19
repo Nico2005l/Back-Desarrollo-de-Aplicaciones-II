@@ -13,6 +13,7 @@ import com.daii.backdaii.dto.medioPago.MedioPagoUpdateRequest;
 import com.daii.backdaii.exception.BadRequestException;
 import com.daii.backdaii.exception.NotFoundException;
 import com.daii.backdaii.service.MedioPagoService;
+import com.daii.backdaii.service.Precondicion;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,13 +78,25 @@ public class MedioPagoServiceImpl implements MedioPagoService {
         }
 
         @Override
+        @Transactional(readOnly = true)
+        public MedioPagoResumen obtener(String email, Long id) {
+                Usuario usuario = usuarioRepository.findByEmail(email)
+                        .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+                return medioPagoRepository.findByIdAndUsuarioIdAndEliminadoFalse(id, usuario.getId())
+                        .map(this::toResumen)
+                        .orElseThrow(() -> new NotFoundException("Medio de pago no encontrado"));
+        }
+
+        @Override
         @Transactional
-        public MedioPagoResumen actualizar(String email, Long id, MedioPagoUpdateRequest request) {
+        public MedioPagoResumen actualizar(String email, Long id, MedioPagoUpdateRequest request,
+                                           Precondicion precondicion) {
                 Usuario usuario = usuarioRepository.findByEmail(email)
                         .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
 
-                MedioPago medioPago = medioPagoRepository.findByIdAndUsuarioIdAndEliminadoFalse(id, usuario.getId())
+                MedioPago medioPago = medioPagoRepository.findWithLockByIdAndUsuarioIdAndEliminadoFalse(id, usuario.getId())
                         .orElseThrow(() -> new NotFoundException("Medio de pago no encontrado"));
+                precondicion.verificar(medioPago.getVersion());
 
                 if (estaVencida(request.getVencimiento())) {
                         throw new BadRequestException("La tarjeta está vencida");

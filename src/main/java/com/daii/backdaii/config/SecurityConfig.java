@@ -121,6 +121,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        // Readable by the front: the version for If-Match, when to retry, and whether a POST was replayed.
+        configuration.setExposedHeaders(List.of("ETag", "Retry-After", "Idempotent-Replayed"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

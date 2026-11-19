@@ -61,6 +61,9 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long>, JpaSpec
     @Query("select r from Reserva r where r.id = :id")
     Optional<Reserva> findBloqueadaById(Long id);
 
+    @Query("select r.version from Reserva r where r.id = :id")
+    Optional<Long> findVersionById(Long id);
+
     /** Bookings shown in a calendar or an agenda, with the customer, so the view needs one query. */
     @EntityGraph(attributePaths = {"espacio", "usuario"})
     @Query("select r from Reserva r where r.espacio.id in :espacioIds and r.inicio < :hasta and r.fin > :desde "

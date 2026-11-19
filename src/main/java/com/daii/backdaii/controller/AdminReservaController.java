@@ -9,9 +9,15 @@ import com.daii.backdaii.dto.reserva.ReservaDTOs.FiltroReservas;
 import com.daii.backdaii.dto.reserva.ReservaDTOs.PaginaReservas;
 import com.daii.backdaii.dto.reserva.ReservaDTOs.ReservaDTO;
 import com.daii.backdaii.service.AdminReservaService;
+import com.daii.backdaii.service.Versiones;
+import com.daii.backdaii.web.Idempotente;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,6 +40,7 @@ import java.util.Map;
 public class AdminReservaController {
 
     private final AdminReservaService adminReservaService;
+    private final Versiones versiones;
 
     @GetMapping("/reservas")
     public ResponseEntity<PaginaReservas> listar(
@@ -59,6 +66,9 @@ public class AdminReservaController {
     }
 
     @PostMapping("/reservas")
+    @Idempotente
+    @Parameter(in = ParameterIn.HEADER, name = Idempotente.CABECERA, description = Idempotente.DESCRIPCION,
+            schema = @Schema(type = "string", pattern = Etags.PATRON_CLAVE))
     public ResponseEntity<ReservaDTO> crear(@AuthenticationPrincipal UserDetails user,
                                             @Valid @RequestBody AdminReservaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(adminReservaService.crear(user.getUsername(), request));
@@ -66,8 +76,11 @@ public class AdminReservaController {
 
     @PutMapping("/reservas/{id}")
     public ResponseEntity<ReservaDTO> actualizar(@AuthenticationPrincipal UserDetails user, @PathVariable Long id,
+                                                 @Parameter(description = Etags.DESCRIPCION_IF_MATCH)
+                                                 @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
                                                  @Valid @RequestBody AdminReservaRequest request) {
-        return ResponseEntity.ok(adminReservaService.actualizar(user.getUsername(), id, request));
+        ReservaDTO reserva = adminReservaService.actualizar(user.getUsername(), id, request, Etags.precondicion(ifMatch));
+        return ResponseEntity.ok().eTag(Etags.de(versiones.reserva(id))).body(reserva);
     }
 
     @DeleteMapping("/reservas/{id}")

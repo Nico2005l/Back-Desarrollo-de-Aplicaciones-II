@@ -9,6 +9,7 @@ import com.daii.backdaii.dto.usuario.UpdateMeRequest;
 import com.daii.backdaii.dto.usuario.UsuarioDTO;
 import com.daii.backdaii.exception.NotFoundException;
 import com.daii.backdaii.mapper.UsuarioMapper;
+import com.daii.backdaii.service.Precondicion;
 import com.daii.backdaii.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -35,9 +36,10 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     @Override
     @Transactional
-    public UsuarioDTO updateMe(String email, UpdateMeRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
+    public UsuarioDTO updateMe(String email, UpdateMeRequest request, Precondicion precondicion) {
+        Usuario usuario = usuarioRepository.findWithLockByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
+        precondicion.verificar(usuario.getVersion());
 
         usuario.setTelefono(request.getTelefono());
         usuarioRepository.save(usuario);

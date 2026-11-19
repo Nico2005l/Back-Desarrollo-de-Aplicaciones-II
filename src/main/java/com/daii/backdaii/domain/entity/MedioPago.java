@@ -20,6 +20,10 @@ public class MedioPago {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Incremented by the database on every update (migration V28); served as the ETag. */
+    @Column(insertable = false, updatable = false)
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
