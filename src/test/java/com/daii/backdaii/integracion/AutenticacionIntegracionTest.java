@@ -4,7 +4,11 @@ import com.daii.backdaii.domain.entity.EmailConfirmationToken;
 import com.daii.backdaii.domain.entity.PasswordResetToken;
 import com.daii.backdaii.domain.entity.Usuario;
 import com.daii.backdaii.domain.enums.EstadoUsuario;
+import com.daii.backdaii.domain.enums.EventoAuditoria;
+import com.daii.backdaii.domain.enums.ResultadoAuditoria;
 import com.daii.backdaii.domain.enums.Rol;
+import com.daii.backdaii.dto.auditoria.PaginaAuditoria;
+import com.daii.backdaii.service.AuditoriaService;
 import com.daii.backdaii.domain.repository.EmailConfirmationTokenRepository;
 import com.daii.backdaii.domain.repository.PasswordResetTokenRepository;
 import com.daii.backdaii.domain.repository.UsuarioRepository;
@@ -21,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -58,6 +63,8 @@ class AutenticacionIntegracionTest extends IntegracionBase {
     private PasswordEncoder encoder;
     @Autowired
     private Clock reloj;
+    @Autowired
+    private AuditoriaService auditoria;
 
     @Test
     void registroConfirmacionEInicioDeSesion() throws Exception {
@@ -188,6 +195,60 @@ class AutenticacionIntegracionTest extends IntegracionBase {
     }
 
     @Test
+    void unLinkDeRecuperacionDuraTreintaMinutosYVencidoNoSirve() throws Exception {
+        Usuario usuario = activo();
+
+        LocalDateTime antes = LocalDateTime.now();
+        // From an IP of its own: recovery requests are capped per IP and the suite shares localhost.
+        mvc.perform(post("/api/auth/forgot-password").with(desde("10.20.30.41")).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", usuario.getEmail()))))
+                .andExpect(status().isOk());
+        assertThat(recuperaciones.findAll()).filteredOn(t -> t.getUsuario().getId().equals(usuario.getId()))
+                .singleElement()
+                .satisfies(t -> assertThat(t.getExpiresAt()).isBetween(antes.plusMinutes(30), LocalDateTime.now().plusMinutes(30)));
+
+        String crudo = SecureTokens.generar();
+        recuperaciones.save(PasswordResetToken.builder().usuario(usuario).tokenHash(SecureTokens.hash(crudo))
+                .expiresAt(LocalDateTime.now().minusMinutes(1)).build());
+        enviar("/api/auth/reset-password", Map.of("token", crudo, "nuevaPassword", CLAVE_NUEVA))
+                .andExpect(status().isBadRequest());
+        // The password did not change.
+        enviar("/api/auth/login", Map.of("email", usuario.getEmail(), "password", CLAVE)).andExpect(status().isOk());
+    }
+
+    @Test
+    void laBitacoraGuardaQuienDesdeDondeYElResultadoSinDatosSensibles() throws Exception {
+        Usuario usuario = activo();
+        String ip = "10.20.30.40";
+        String agente = "Pruebas-Auditoria/1.0";
+        String claveEquivocada = "Clave-Equivocada-5521";
+
+        mvc.perform(post("/api/auth/login").with(desde(ip)).header(HttpHeaders.USER_AGENT, agente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", usuario.getEmail(), "password", claveEquivocada))))
+                .andExpect(status().isUnauthorized());
+        MvcResult acierto = mvc.perform(post("/api/auth/login").with(desde(ip)).header(HttpHeaders.USER_AGENT, agente)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", usuario.getEmail(), "password", CLAVE))))
+                .andExpect(status().isOk()).andReturn();
+
+        PaginaAuditoria pagina = auditoria.buscar(EventoAuditoria.LOGIN, usuario.getEmail(), 0, 10);
+        assertThat(pagina.content()).extracting(PaginaAuditoria.Registro::resultado)
+                .containsExactlyInAnyOrder(ResultadoAuditoria.FALLO, ResultadoAuditoria.EXITO);
+        assertThat(pagina.content()).allSatisfy(registro -> {
+            assertThat(registro.fecha()).isNotNull();
+            assertThat(registro.usuario()).isEqualTo(usuario.getEmail());
+            assertThat(registro.ip()).isEqualTo(ip);
+            assertThat(registro.userAgent()).isEqualTo(agente);
+        });
+
+        // Nothing secret reaches the log: neither password, nor the access token, nor the refresh cookie.
+        String todo = json.writeValueAsString(auditoria.buscar(null, usuario.getEmail(), 0, 100));
+        assertThat(todo).doesNotContain(CLAVE, claveEquivocada, token(acierto),
+                acierto.getResponse().getCookie(COOKIE).getValue());
+    }
+
+    @Test
     void elAdminEntraConSegundoFactor() throws Exception {
         Usuario admin = usuarios.findByEmail(Escenario.ADMIN).orElseThrow();
         admin.setPassword(encoder.encode(CLAVE));
@@ -254,6 +315,13 @@ class AutenticacionIntegracionTest extends IntegracionBase {
 
     private String token(MvcResult resultado) throws Exception {
         return json.readTree(resultado.getResponse().getContentAsString()).get("token").asText();
+    }
+
+    private static RequestPostProcessor desde(String ip) {
+        return pedido -> {
+            pedido.setRemoteAddr(ip);
+            return pedido;
+        };
     }
 
     private static String emailNuevo() {
