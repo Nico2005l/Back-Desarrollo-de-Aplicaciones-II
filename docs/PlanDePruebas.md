@@ -3,7 +3,7 @@
 **Versión 1 · 3.er checkpoint (20/11/2026)**
 Estructura basada en ISO/IEC/IEEE 29119-3, según los Criterios de Testing de la cátedra. Complementa al [documento técnico](DocumentoTecnico.md) y a la [arquitectura de integración](Integracion.md).
 
-> Pendiente para la versión final: la matriz de trazabilidad completa contra las historias de usuario de Jira (sección 8), las pruebas de punta a punta, la prueba de carga y el escaneo ZAP (sección 9).
+> Pendiente para la versión final: cerrar los huecos de la matriz de trazabilidad (sección 8), las pruebas de punta a punta, la prueba de carga y el escaneo ZAP (sección 9).
 
 ---
 
@@ -101,7 +101,7 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 | R6 | Un cliente usa un endpoint de administrador (BFLA) | 2 | 3 | 6 | `@PreAuthorize` por permiso. `SeguridadTest`, casos "como cliente" de Newman (403) |
 | R7 | Transición de estado inválida de una reserva | 2 | 2 | 4 | Patrón State. `EstadoReservaTest` (40 casos parametrizados), `TransicionesReservaIntegracionTest` (409) |
 | R8 | Dos administradores editan la misma reserva y uno pisa al otro | 2 | 2 | 4 | ETag/If-Match con la fila bloqueada. `EtagIntegracionTest` |
-| R9 | Fuerza bruta sobre el login | 2 | 2 | 4 | Límite de intentos y rate limit (429). `LimitadorDeIntentosTest`, `AutenticacionIntegracionTest` |
+| R9 | Fuerza bruta sobre el login | 2 | 2 | 4 | Límite de intentos y rate limit (429). `LimitadorDeIntentosTest`, `LimiteTasaIntegracionTest`, `AutenticacionIntegracionTest` |
 | R10 | La respuesta no respeta el contrato publicado | 2 | 2 | 4 | `ContratoApiIntegracionTest`, Schemathesis en el CI |
 | R11 | Reintegro incorrecto al cancelar | 1 | 3 | 3 | `PoliticaCancelacionTest`, `CancelacionesTest` |
 | R12 | Falla de un servicio de mail o de Pwned Passwords bloquea el flujo | 1 | 2 | 2 | Timeout de 5 s y fallback. `GmailApiEmailServiceTest` |
@@ -111,7 +111,7 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 
 ## 6. Inventario de pruebas automatizadas
 
-242 pruebas de JUnit (unitarias e integración) y 99 pedidos de Postman. Datos de la corrida del 19/11/2026.
+255 pruebas de JUnit (unitarias e integración) y 99 pedidos de Postman. Datos de la corrida del 19/11/2026.
 
 | Clase | Nivel | Pruebas |
 |---|---|---|
@@ -127,6 +127,7 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 | `service.impl.BarridoCobrosTest` | Unitario | 4 |
 | `service.impl.GmailApiEmailServiceTest` | Unitario | 2 |
 | `service.impl.ControlAccesoSimuladoTest` | Unitario | 2 |
+| `mensajeria.MonitorDlqTest` | Unitario | 4 |
 | `service.PrecondicionTest` | Unitario | 3 |
 | `controller.EtagsTest` | Unitario | 12 |
 | `security.SeguridadTest` | Unitario | 9 |
@@ -137,7 +138,7 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 | `integracion.CatalogoIntegracionTest` | Integración | 11 |
 | `integracion.ContratoApiIntegracionTest` | Integración | 10 |
 | `integracion.ReservasClienteIntegracionTest` | Integración | 9 |
-| `integracion.AutenticacionIntegracionTest` | Integración | 8 |
+| `integracion.AutenticacionIntegracionTest` | Integración | 10 |
 | `integracion.BloqueosIntegracionTest` | Integración | 7 |
 | `integracion.MediosPagoIntegracionTest` | Integración | 6 |
 | `integracion.EtagIntegracionTest` | Integración | 6 |
@@ -145,14 +146,16 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 | `integracion.ReservaRepositoryIntegracionTest` | Integración | 5 |
 | `integracion.MensajeriaIntegracionTest` (RabbitMQ real) | Integración | 10 |
 | `integracion.PasarelaLentaIntegracionTest` | Integración | 1 |
+| `integracion.LimiteTasaIntegracionTest` | Integración | 4 |
+| `integracion.CabecerasSeguridadIntegracionTest` (HTTP real, puerto aleatorio) | Integración | 3 |
 
 **Métricas actuales** (`mvn verify` del 19/11/2026):
 
 | Métrica | Valor | Umbral |
 |---|---|---|
-| Pruebas JUnit | 242 ejecutadas, 242 pasadas | 100 % |
-| Cobertura de líneas, capa de negocio | 94,3 % | 80 % |
-| Cobertura de ramas, capa de negocio | 77,9 % | 70 % |
+| Pruebas JUnit | 255 ejecutadas, 255 pasadas | 100 % |
+| Cobertura de líneas, capa de negocio | 94,6 % | 80 % |
+| Cobertura de ramas, capa de negocio | 78,9 % | 70 % |
 | Mutation score (dominio) | 74 % (115 de 155 mutantes) | 60 % |
 | SpotBugs/FindSecBugs, prioridad alta | 0 | 0 |
 
@@ -174,7 +177,15 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 
 ## 8. Matriz de trazabilidad
 
-> **Pendiente:** se completa con los IDs de las historias de usuario y sus criterios de aceptación de Jira (HU → criterio → caso → prueba automatizada → resultado → evidencia → defecto). Las pruebas del inventario (sección 6) ya están agrupadas por componente para mapearlas.
+La matriz está en [MatrizTrazabilidad.md](MatrizTrazabilidad.md). Cruza cada criterio de aceptación de las historias del tablero del equipo (GitHub Projects) con su caso, la prueba automatizada, el resultado, la evidencia del CI y el defecto que la motivó.
+
+| Resultado | Criterios |
+|---|---|
+| Pasa | 104 de 127 (81,9 %) |
+| Parcial, Sin prueba o Manual | 21 (9 son de la interfaz, para Playwright) |
+| No implementado | 2 (B-9 paginado de usuarios; B-20 evento de reserva cancelada) |
+
+Los casos negativos y de borde son el 56,7 %. La matriz lista además los huecos a cubrir antes de la entrega final (sección 7) y las diferencias entre el texto de las historias y lo implementado (sección 8).
 
 ---
 
@@ -189,7 +200,8 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 | Dependencias sin CVE críticas o altas (OWASP Dependency-Check o Trivy) | Eje D | Pendiente |
 | Quality Gate de SonarCloud: el job existe, pero corre solo con las variables `SONAR_*` configuradas en el repositorio | Eje B | Pendiente de configurar |
 | Accesibilidad con Lighthouse/axe 90 o más; responsive a 360, 768 y 1280 px | Eje A | Pendiente |
-| 40 % o más de casos negativos o de borde en la especificación de casos | Entregable 3 | A medir con la matriz |
+| 40 % o más de casos negativos o de borde en la especificación de casos | Entregable 3 | Cumple: 56,7 % en la matriz |
+| Pruebas para los criterios de la API que siguen sin prueba o parciales (mails de cancelación, búsqueda por nombre, motivo, orden del listado) | Matriz, sección 7 | Pendiente |
 | Suite 3 veces seguidas sin diferencias (flaky) | Eje B | Pendiente de medir en el CI |
 
 ---
@@ -198,6 +210,6 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 
 | Herramienta | Para qué | Qué se validó a mano |
 |---|---|---|
-| Claude (Anthropic) | Implementación y pruebas de resiliencia (timeout, circuit breaker, Idempotency-Key, ETag), del tópico con outbox y redacción de este plan | Las pruebas se corrieron en `mvn verify` (242 pasadas). Los umbrales se contrastaron con el documento de criterios. Falta que cada autor revise y firme sus pruebas y verifique a mano que fallen al romper el código que prueban |
+| Claude (Anthropic) | Implementación y pruebas de resiliencia (timeout, circuit breaker, Idempotency-Key, ETag), del tópico con outbox, pruebas de los huecos de seguridad de la matriz (cabeceras, límite de tasa, auditoría, alerta de la DLQ), redacción de este plan y de la matriz de trazabilidad | Las pruebas se corrieron en `mvn verify` (255 pasadas). Los umbrales se contrastaron con el documento de criterios. Falta que cada autor revise y firme sus pruebas y verifique a mano que fallen al romper el código que prueban |
 
 > Completar con el resto de las herramientas del equipo, un prompt representativo por herramienta y al menos un caso en que la IA propuso algo incorrecto y cómo se detectó (sección 8 de los criterios).
