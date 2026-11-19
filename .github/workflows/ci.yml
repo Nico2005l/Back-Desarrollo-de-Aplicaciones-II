@@ -1,5 +1,6 @@
 # Build, unit tests with coverage (JaCoCo) and static analysis (SpotBugs + FindSecBugs) on every
-# push, pull request and release tag. `mvn verify` runs all three; see the plugins in pom.xml.
+# push, pull request and release tag. `mvn verify` runs all three; see the plugins in pom.xml. The
+# dependencias job reports the known vulnerabilities of the dependencies.
 name: CI
 
 on:
@@ -170,3 +171,26 @@ jobs:
           -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
           -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
           -Dsonar.qualitygate.wait=true
+
+  # Known vulnerabilities (OSV database) in the Maven dependencies, direct and transitive. It reports
+  # in the run summary without failing the build: today's findings come from the Spring Boot version,
+  # and Dependabot opens the PRs that update it. Only a failure of the scanner itself fails the job.
+  dependencias:
+    name: Escaneo de dependencias (OSV-Scanner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: OSV-Scanner
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.7.0 \
+            scan source -r /src --format markdown > osv.md
+          codigo=$?
+          set -e
+          # The scanner also prints its progress on stdout: only the totals and the table go to the summary.
+          { echo "## Vulnerabilidades conocidas en las dependencias"; echo;
+            grep -E '^(Total |[0-9]+ vulnerabilit|No issues|\|)' osv.md || true; } >> "$GITHUB_STEP_SUMMARY"
+          # 0: nothing found; 1: vulnerabilities found (reported above). Anything else is an error.
+          if [ "$codigo" -gt 1 ]; then exit "$codigo"; fi
