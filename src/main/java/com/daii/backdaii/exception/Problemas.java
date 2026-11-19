@@ -4,16 +4,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Error answers in Problem Details format (RFC 9457): type, title, status, detail and instance,
- * served as application/problem+json. The fields the front already reads (message, code, errors
- * and the extras of each error, such as alternativas) stay as extension members.
+ * The single error format of the API: Problem Details (RFC 9457), served as application/problem+json.
+ * Every error, from a controller or from a filter, is built here. Besides type, title, status, detail
+ * and instance it carries the members the front reads: message (same as detail), code when the client
+ * reacts to a specific case, and the extras of some errors (errors, alternativas, reservas).
  */
 public final class Problemas {
 
@@ -38,31 +40,29 @@ public final class Problemas {
     private Problemas() {
     }
 
-    /** The body of an error answer: the RFC 9457 members first, then everything the error carried. */
-    public static Map<String, Object> cuerpo(int status, String instancia, Map<String, Object> error) {
-        Map<String, Object> problema = new LinkedHashMap<>();
-        Object codigo = error.get("code");
-        problema.put("type", codigo != null ? PREFIJO_TIPO + codigo : "about:blank");
-        problema.put("title", TITULOS.getOrDefault(status, HttpStatus.valueOf(status).getReasonPhrase()));
-        problema.put("status", status);
-        problema.put("detail", error.get("message"));
-        problema.put("instance", instancia);
-        error.forEach((clave, valor) -> {
-            if (valor != null) {
-                problema.putIfAbsent(clave, valor);
-            }
-        });
+    public static ProblemDetail de(HttpStatus status, String mensaje) {
+        return de(status, mensaje, null);
+    }
+
+    /** With a code, the type identifies the case: urn:planta-libre:problema:CODE. Without one, about:blank. */
+    public static ProblemDetail de(HttpStatus status, String mensaje, String codigo) {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(status, mensaje);
+        problema.setTitle(TITULOS.getOrDefault(status.value(), status.getReasonPhrase()));
+        problema.setProperty("message", mensaje);
+        if (codigo != null) {
+            problema.setType(URI.create(PREFIJO_TIPO + codigo));
+            problema.setProperty("code", codigo);
+        }
         return problema;
     }
 
-    /** For the filters that answer before any controller (authentication, rate limit). */
-    public static void escribir(HttpServletResponse respuesta, ObjectMapper json, HttpStatus status, String instancia,
-                                ErrorResponse error) throws IOException {
-        respuesta.setStatus(status.value());
+    /** For the filters that answer before any controller (authentication, rate limit, idempotency). */
+    public static void escribir(HttpServletResponse respuesta, ObjectMapper json, String instancia,
+                                ProblemDetail problema) throws IOException {
+        problema.setInstance(URI.create(instancia));
+        respuesta.setStatus(problema.getStatus());
         respuesta.setContentType(TIPO.toString());
         respuesta.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        @SuppressWarnings("unchecked")
-        Map<String, Object> campos = json.convertValue(error, Map.class);
-        json.writeValue(respuesta.getWriter(), cuerpo(status.value(), instancia, campos));
+        json.writeValue(respuesta.getWriter(), problema);
     }
 }

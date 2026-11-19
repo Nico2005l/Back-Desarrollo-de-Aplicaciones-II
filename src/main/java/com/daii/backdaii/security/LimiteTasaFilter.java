@@ -2,7 +2,6 @@ package com.daii.backdaii.security;
 
 import com.daii.backdaii.domain.enums.EventoAuditoria;
 import com.daii.backdaii.domain.enums.ResultadoAuditoria;
-import com.daii.backdaii.exception.ErrorResponse;
 import com.daii.backdaii.exception.Problemas;
 import com.daii.backdaii.service.AuditoriaService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,8 +67,8 @@ public class LimiteTasaFilter extends OncePerRequestFilter {
                     limite.name() + " en " + request.getMethod() + " " + request.getRequestURI());
         }
         response.setHeader("Retry-After", String.valueOf(limite.getVentana().toSeconds()));
-        Problemas.escribir(response, objectMapper, HttpStatus.TOO_MANY_REQUESTS, request.getRequestURI(),
-                new ErrorResponse("Demasiadas solicitudes. Probá de nuevo en un minuto."));
+        Problemas.escribir(response, objectMapper, request.getRequestURI(),
+                Problemas.de(HttpStatus.TOO_MANY_REQUESTS, "Demasiadas solicitudes. Probá de nuevo en un minuto."));
         return true;
     }
 

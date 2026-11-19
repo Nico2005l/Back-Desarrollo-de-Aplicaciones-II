@@ -1,6 +1,5 @@
 package com.daii.backdaii.config;
 
-import com.daii.backdaii.exception.ErrorResponse;
 import com.daii.backdaii.exception.Problemas;
 import jakarta.servlet.http.HttpServletRequest;
 import com.daii.backdaii.domain.enums.EventoAuditoria;
@@ -102,7 +101,7 @@ public class SecurityConfig {
     // Security errors happen before the controllers, so GlobalExceptionHandler never sees them.
     private void writeError(HttpServletRequest request, HttpServletResponse response, HttpStatus status, String message)
             throws IOException {
-        Problemas.escribir(response, objectMapper, status, request.getRequestURI(), new ErrorResponse(message));
+        Problemas.escribir(response, objectMapper, request.getRequestURI(), Problemas.de(status, message));
     }
 
     @Bean

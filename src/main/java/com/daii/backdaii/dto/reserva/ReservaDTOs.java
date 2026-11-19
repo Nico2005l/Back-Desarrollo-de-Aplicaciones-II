@@ -91,9 +91,6 @@ public final class ReservaDTOs {
     }
 
     /** Body of a 409 when the slot was taken: nearby free ranges of the same space and day. */
-    public record FranjaTomada(String message, String code, List<FranjaDTO> alternativas) {
-    }
-
     public record PaginaReservas(
             List<ReservaDTO> content,
             int page,
@@ -156,9 +153,6 @@ public final class ReservaDTOs {
     }
 
     /** Body of the 409 of a block that falls on bookings: the client confirms and retries. */
-    public record ReservasAfectadas(String message, String code, List<ReservaAfectada> reservas) {
-    }
-
     public record BloqueoDTO(
             Long id,
             UUID grupo,

@@ -1,6 +1,5 @@
 package com.daii.backdaii.web;
 
-import com.daii.backdaii.exception.ErrorResponse;
 import com.daii.backdaii.exception.Problemas;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -150,7 +149,7 @@ public class IdempotenciaFilter extends OncePerRequestFilter {
 
     private void error(HttpServletRequest request, HttpServletResponse response, HttpStatus status, String mensaje,
                        String codigo) throws IOException {
-        Problemas.escribir(response, json, status, request.getRequestURI(), new ErrorResponse(mensaje, null, codigo));
+        Problemas.escribir(response, json, request.getRequestURI(), Problemas.de(status, mensaje, codigo));
     }
 
     private boolean idempotente(HttpServletRequest request) {

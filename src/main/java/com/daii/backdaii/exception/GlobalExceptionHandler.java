@@ -5,11 +5,10 @@ import com.daii.backdaii.domain.enums.EventoAuditoria;
 import com.daii.backdaii.domain.enums.ResultadoAuditoria;
 import com.daii.backdaii.service.AuditoriaService;
 import lombok.RequiredArgsConstructor;
-import com.daii.backdaii.dto.reserva.ReservaDTOs.FranjaTomada;
-import com.daii.backdaii.dto.reserva.ReservaDTOs.ReservasAfectadas;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -34,6 +33,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/** Every error answer is a Problem Details body built by {@link Problemas}. */
 @RestControllerAdvice
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
@@ -43,94 +43,96 @@ public class GlobalExceptionHandler {
     private final AuditoriaService auditoria;
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ErrorResponse> handleApi(ApiException ex) {
-        return ResponseEntity.status(ex.getStatus()).body(new ErrorResponse(ex.getMessage(), null, ex.getCode()));
+    public ProblemDetail handleApi(ApiException ex) {
+        return Problemas.de(ex.getStatus(), ex.getMessage(), ex.getCode());
     }
 
     // The provider is down or slow: the client is told when to try again.
     @ExceptionHandler(PasarelaNoDisponibleException.class)
-    public ResponseEntity<ErrorResponse> handlePasarela(PasarelaNoDisponibleException ex) {
+    public ResponseEntity<ProblemDetail> handlePasarela(PasarelaNoDisponibleException ex) {
         log.warn("Pedido sin completar: pasarela de pagos no disponible ({})", ex.getMotivo());
         return ResponseEntity.status(ex.getStatus())
                 .header("Retry-After", String.valueOf(PasarelaNoDisponibleException.REINTENTAR_EN_SEGUNDOS))
-                .body(new ErrorResponse(ex.getMessage(), null, ex.getCode()));
+                .body(Problemas.de(ex.getStatus(), ex.getMessage(), ex.getCode()));
     }
 
     // More specific than ApiException, so Spring picks this one: the body adds the alternatives.
     @ExceptionHandler(FranjaTomadaException.class)
-    public ResponseEntity<FranjaTomada> handleFranjaTomada(FranjaTomadaException ex) {
-        return ResponseEntity.status(ex.getStatus())
-                .body(new FranjaTomada(ex.getMessage(), ex.getCode(), ex.getAlternativas()));
+    public ProblemDetail handleFranjaTomada(FranjaTomadaException ex) {
+        ProblemDetail problema = Problemas.de(ex.getStatus(), ex.getMessage(), ex.getCode());
+        problema.setProperty("alternativas", ex.getAlternativas());
+        return problema;
     }
 
     @ExceptionHandler(ReservasAfectadasException.class)
-    public ResponseEntity<ReservasAfectadas> handleReservasAfectadas(ReservasAfectadasException ex) {
-        return ResponseEntity.status(ex.getStatus())
-                .body(new ReservasAfectadas(ex.getMessage(), ex.getCode(), ex.getReservas()));
+    public ProblemDetail handleReservasAfectadas(ReservasAfectadasException ex) {
+        ProblemDetail problema = Problemas.de(ex.getStatus(), ex.getMessage(), ex.getCode());
+        problema.setProperty("reservas", ex.getReservas());
+        return problema;
     }
 
     /** Invalid state change of a booking (State pattern in EstadoReserva). */
     @ExceptionHandler(TransicionInvalidaException.class)
-    public ResponseEntity<ErrorResponse> handleTransicionInvalida(TransicionInvalidaException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse(ex.getMessage(), null, TransicionInvalidaException.CODE));
+    public ProblemDetail handleTransicionInvalida(TransicionInvalidaException ex) {
+        return Problemas.de(HttpStatus.CONFLICT, ex.getMessage(), TransicionInvalidaException.CODE);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+    public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new LinkedHashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
         String message = errors.values().stream().findFirst().orElse("Los datos enviados no son válidos");
-        return ResponseEntity.badRequest().body(new ErrorResponse(message, errors));
+        ProblemDetail problema = Problemas.de(HttpStatus.BAD_REQUEST, message);
+        problema.setProperty("errors", errors);
+        return problema;
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
-    public ResponseEntity<ErrorResponse> handleUnreadable(Exception ex) {
-        return ResponseEntity.badRequest().body(new ErrorResponse("El formato de la solicitud no es válido"));
+    public ProblemDetail handleUnreadable(Exception ex) {
+        return Problemas.de(HttpStatus.BAD_REQUEST, "El formato de la solicitud no es válido");
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("Email o contraseña incorrectos"));
+    public ProblemDetail handleBadCredentials(BadCredentialsException ex) {
+        return Problemas.de(HttpStatus.UNAUTHORIZED, "Email o contraseña incorrectos");
     }
 
     @ExceptionHandler({DisabledException.class, LockedException.class})
-    public ResponseEntity<ErrorResponse> handleDisabled(AuthenticationException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse("La cuenta no está habilitada"));
+    public ProblemDetail handleDisabled(AuthenticationException ex) {
+        return Problemas.de(HttpStatus.FORBIDDEN, "La cuenta no está habilitada");
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("No autenticado"));
+    public ProblemDetail handleAuthentication(AuthenticationException ex) {
+        return Problemas.de(HttpStatus.UNAUTHORIZED, "No autenticado");
     }
 
     // Thrown by @PreAuthorize inside the controller layer, so it arrives here instead of the security filter.
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, jakarta.servlet.http.HttpServletRequest request) {
+    public ProblemDetail handleAccessDenied(AccessDeniedException ex, jakarta.servlet.http.HttpServletRequest request) {
         auditoria.registrar(EventoAuditoria.ACCESO_DENEGADO, ResultadoAuditoria.DENEGADO, request.getRemoteUser(),
                 request.getMethod() + " " + request.getRequestURI());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse("No tenés permiso para esta acción"));
+        return Problemas.de(HttpStatus.FORBIDDEN, "No tenés permiso para esta acción");
     }
 
     // MissingPathVariableException: an id in the URL that is blank, such as /api/espacios/%20.
     @ExceptionHandler({MissingServletRequestParameterException.class, MissingRequestHeaderException.class,
             MissingPathVariableException.class})
-    public ResponseEntity<ErrorResponse> handleMissing(Exception ex) {
-        return ResponseEntity.badRequest().body(new ErrorResponse("Falta un dato obligatorio de la solicitud"));
+    public ProblemDetail handleMissing(Exception ex) {
+        return Problemas.de(HttpStatus.BAD_REQUEST, "Falta un dato obligatorio de la solicitud");
     }
 
     // A malformed multipart body (for example without its boundary) is the client's mistake.
     @ExceptionHandler(MultipartException.class)
-    public ResponseEntity<ErrorResponse> handleMultipart(MultipartException ex) {
-        return ResponseEntity.badRequest().body(new ErrorResponse("El cuerpo de la solicitud no es válido"));
+    public ProblemDetail handleMultipart(MultipartException ex) {
+        return Problemas.de(HttpStatus.BAD_REQUEST, "El cuerpo de la solicitud no es válido");
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleMediaType(HttpMediaTypeNotSupportedException ex) {
-        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
-                .body(new ErrorResponse("El cuerpo tiene que enviarse como application/json"));
+    public ProblemDetail handleMediaType(HttpMediaTypeNotSupportedException ex) {
+        return Problemas.de(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "El cuerpo tiene que enviarse como application/json");
     }
 
     // The client accepts nothing the API can produce, so the answer carries no body.
@@ -140,20 +142,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ErrorResponse> handleMethod(HttpRequestMethodNotSupportedException ex) {
-        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(new ErrorResponse("Método no permitido"));
+    public ProblemDetail handleMethod(HttpRequestMethodNotSupportedException ex) {
+        return Problemas.de(HttpStatus.METHOD_NOT_ALLOWED, "Método no permitido");
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Recurso no encontrado"));
+    public ProblemDetail handleNoResource(NoResourceFoundException ex) {
+        return Problemas.de(HttpStatus.NOT_FOUND, "Recurso no encontrado");
     }
 
     // Unknown failures keep their detail in the log only, never in the response.
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+    public ProblemDetail handleUnexpected(Exception ex) {
         log.error("Unhandled error", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("Ocurrió un error inesperado"));
+        return Problemas.de(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado");
     }
 }
