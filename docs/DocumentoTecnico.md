@@ -205,7 +205,7 @@ El controlador no debería conocer ese orden. La fachada lo encapsula detrás de
 
 ## 6. Seguridad
 
-Los criterios SEC-01 a SEC-10 están implementados y probados (`SeguridadTest`, `SesionesTest`, `LimitadorDeIntentosTest`, `AutenticacionIntegracionTest`).
+Los criterios SEC-01 a SEC-10 están implementados. Sus pruebas (`SeguridadTest`, `SesionesTest`, `LimitadorDeIntentosTest`, `AutenticacionIntegracionTest`, `MensajeriaIntegracionTest`) se cruzan criterio por criterio en la [matriz de trazabilidad](MatrizTrazabilidad.md). Todos tienen prueba automatizada, con dos excepciones: el rechazo de `guest` y de AMQP sin TLS (SEC-07) se verifica en la configuración del broker, y el escaneo de secretos del historial (SEC-10) espera a gitleaks.
 
 | Criterio | Qué hace |
 |---|---|
@@ -295,8 +295,8 @@ La estrategia, los niveles, los riesgos y las métricas están en el [plan de pr
 
 **Corrida del 19/11/2026:**
 
-- 242 pruebas de JUnit, unitarias y de integración contra PostgreSQL y RabbitMQ reales con Testcontainers.
-- Cobertura de la capa de negocio: 94,3 % de líneas y 77,9 % de ramas.
+- 255 pruebas de JUnit, unitarias y de integración contra PostgreSQL y RabbitMQ reales con Testcontainers.
+- Cobertura de la capa de negocio: 94,6 % de líneas y 78,9 % de ramas.
 - Mutation score del dominio: 74 %.
 - 0 hallazgos de SpotBugs/FindSecBugs.
 - 99 pedidos de Postman, corridos con Newman en el CI.
