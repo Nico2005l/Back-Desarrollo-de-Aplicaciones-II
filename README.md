@@ -45,6 +45,23 @@ dejar en `.env`):
 FRONT_PUERTO=9000 API_PUERTO=9080 docker compose up --build
 ```
 
+Si el frontend está clonado en otra carpeta, se indica con `FRONT_CONTEXT` (también se puede
+dejar en `.env`):
+
+```bash
+FRONT_CONTEXT=../Front docker compose up --build
+```
+
+Las versiones recientes de Docker Compose construyen con `buildx bake`, que pide permiso para leer
+fuera de la carpeta del backend (ahí está el frontend). Si el build se corta con
+`additional privileges requested: pass "--allow=fs.read=.."`, se concede así:
+
+```bash
+BUILDX_BAKE_ENTITLEMENTS_FS=0 docker compose up --build
+```
+
+En PowerShell: `$env:BUILDX_BAKE_ENTITLEMENTS_FS='0'; docker compose up --build`.
+
 Para apagarlo: `docker compose down`. Para empezar de cero (borra la base y los secretos
 generados): `docker compose down -v`.
 
@@ -103,10 +120,3 @@ El contrato de la API (OpenAPI 3) se publica en http://localhost:8080/v3/api-doc
 
 El pipeline levanta la API contra PostgreSQL, corre la colección con Newman y después valida las
 respuestas contra el contrato con Schemathesis. Los reportes quedan en el artefacto `pruebas-api`.
-
-Si el frontend está clonado en otra carpeta, se indica con `FRONT_CONTEXT` (también se puede
-dejar en `.env`):
-
-```bash
-FRONT_CONTEXT=../Front docker compose up --build
-```

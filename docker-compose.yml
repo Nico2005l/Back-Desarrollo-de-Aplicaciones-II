@@ -12,6 +12,8 @@
 #
 # The front is built from its repository cloned next to this one (both repos are private, so
 # Docker cannot fetch it by itself). Another folder: FRONT_CONTEXT=../Front docker compose up --build
+# Recent Compose builds with buildx bake, which must be allowed to read that sibling folder: if the
+# build stops with "additional privileges requested", run with BUILDX_BAKE_ENTITLEMENTS_FS=0.
 services:
   # One-shot: secrets and the broker's TLS certificates, then exits.
   init:
