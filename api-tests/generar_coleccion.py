@@ -86,6 +86,17 @@ def pedido(nombre, metodo, ruta, estado, token=None, cuerpo=None, query=None, pr
     return item
 
 
+def etag(var):
+    """Keeps the ETag of the answer, for an If-Match later."""
+    return ("pm.collectionVariables.set('" + var + "', pm.response.headers.get('ETag'));\n"
+            "pm.test('trae ETag', () => pm.expect(pm.response.headers.get('ETag')).to.match(/^\"\\d+\"$/));")
+
+
+REPETIDA = "pm.test('es la respuesta repetida', () => pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true'));"
+NUEVA_CLAVE = "pm.collectionVariables.set('{var}', pm.variables.replaceIn('{{{{$guid}}}}'));"
+MODIFICADO = "pm.test('código RECURSO_MODIFICADO', () => pm.expect(pm.response.json().code).to.eql('RECURSO_MODIFICADO'));"
+
+
 def carpeta(nombre, descripcion, items):
     return {"name": nombre, "description": descripcion, "item": items}
 
@@ -202,9 +213,22 @@ medios = carpeta("04 Medios de pago", "Tarjetas del cliente: solo se guardan los
     pedido("Mis tarjetas", "GET", "/api/usuarios/me/medios-pago", 200, token="nuevoToken",
            pruebas="pm.test('la primera es la principal', () => pm.expect(pm.response.json()[0].principal).to.eql(true));"),
     pedido("Mis tarjetas sin sesión", "GET", "/api/usuarios/me/medios-pago", 401),
+    pedido("Agregar tarjeta con Idempotency-Key", "POST", "/api/usuarios/me/medios-pago", 201, token="nuevoToken",
+           pre=NUEVA_CLAVE.format(var="claveTarjeta"), headers={"Idempotency-Key": "{{claveTarjeta}}"},
+           cuerpo={**TARJETA, "numeroTarjeta": "5500 0000 0000 0004"}, pruebas=guardar("medio2Id", "pm.response.json().id")),
+    pedido("Repetir el alta con la misma clave", "POST", "/api/usuarios/me/medios-pago", 201, token="nuevoToken",
+           headers={"Idempotency-Key": "{{claveTarjeta}}"}, cuerpo={**TARJETA, "numeroTarjeta": "5500 0000 0000 0004"},
+           pruebas=REPETIDA + "\npm.test('no crea otra tarjeta', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('medio2Id'))));"),
+    pedido("Misma clave con otra tarjeta", "POST", "/api/usuarios/me/medios-pago", 422, token="nuevoToken",
+           headers={"Idempotency-Key": "{{claveTarjeta}}"}, cuerpo={**TARJETA, "numeroTarjeta": "4000 0000 0000 0002"},
+           pruebas="pm.test('código IDEMPOTENCY_KEY_REUTILIZADA', () => pm.expect(pm.response.json().code).to.eql('IDEMPOTENCY_KEY_REUTILIZADA'));"),
+    pedido("Tarjeta", "GET", "/api/usuarios/me/medios-pago/{{medioId}}", 200, token="nuevoToken", pruebas=etag("medioEtag")),
+    pedido("Tarjeta inexistente", "GET", f"/api/usuarios/me/medios-pago/{NO_EXISTE}", 404, token="nuevoToken"),
     pedido("Editar tarjeta", "PUT", "/api/usuarios/me/medios-pago/{{medioId}}", 200, token="nuevoToken",
-           cuerpo={"titular": "TITULAR EDITADO", "vencimiento": "10/36"},
+           headers={"If-Match": "{{medioEtag}}"}, cuerpo={"titular": "TITULAR EDITADO", "vencimiento": "10/36"},
            pruebas="pm.test('cambió el titular', () => pm.expect(pm.response.json().titular).to.eql('TITULAR EDITADO'));"),
+    pedido("Editar tarjeta con un ETag viejo", "PUT", "/api/usuarios/me/medios-pago/{{medioId}}", 412, token="nuevoToken",
+           headers={"If-Match": "{{medioEtag}}"}, cuerpo={"titular": "OTRO TITULAR", "vencimiento": "10/36"}, pruebas=MODIFICADO),
     pedido("Editar tarjeta inexistente", "PUT", f"/api/usuarios/me/medios-pago/{NO_EXISTE}", 404, token="nuevoToken",
            cuerpo={"titular": "TITULAR EDITADO", "vencimiento": "10/36"}),
     pedido("Marcar principal", "PATCH", "/api/usuarios/me/medios-pago/{{medioId}}/principal", 200, token="nuevoToken"),
@@ -213,9 +237,14 @@ medios = carpeta("04 Medios de pago", "Tarjetas del cliente: solo se guardan los
 
 reservas = carpeta("05 Reservas", "El cliente reserva una franja libre.", [
     pedido("Reservar", "POST", "/api/reservas", 201, token="nuevoToken",
+           pre=NUEVA_CLAVE.format(var="claveReserva"), headers={"Idempotency-Key": "{{claveReserva}}"},
            cuerpo={"espacioId": "{{espacioId}}", "inicio": "{{franjaInicio}}", "fin": "{{franjaFin}}", "medioPagoId": "{{medioId}}"},
            pruebas=guardar("reservaId", "pm.response.json().id")
            + "\npm.test('queda pendiente de cobro', () => pm.expect(pm.response.json().estado).to.eql('PENDIENTE'));"),
+    pedido("Reservar otra vez con la misma clave (doble clic)", "POST", "/api/reservas", 201, token="nuevoToken",
+           headers={"Idempotency-Key": "{{claveReserva}}"},
+           cuerpo={"espacioId": "{{espacioId}}", "inicio": "{{franjaInicio}}", "fin": "{{franjaFin}}", "medioPagoId": "{{medioId}}"},
+           pruebas=REPETIDA + "\npm.test('es la misma reserva', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('reservaId'))));"),
     pedido("Reservar una franja tomada", "POST", "/api/reservas", 409, token="nuevoToken",
            cuerpo={"espacioId": "{{espacioId}}", "inicio": "{{franjaInicio}}", "fin": "{{franjaFin}}"}),
     pedido("Reservar sin espacio", "POST", "/api/reservas", 400, token="nuevoToken",
@@ -230,10 +259,14 @@ reservas = carpeta("05 Reservas", "El cliente reserva una franja libre.", [
 
 usuarios = carpeta("06 Usuarios", "Perfil propio y listado para el administrador.", [
     pedido("Mi perfil", "GET", "/api/usuarios/me", 200, token="nuevoToken",
-           pruebas="pm.test('es el usuario confirmado', () => pm.expect(pm.response.json().email).to.eql(pm.environment.get('nuevoEmail')));"),
+           pruebas=etag("perfilEtag")
+           + "\npm.test('es el usuario confirmado', () => pm.expect(pm.response.json().email).to.eql(pm.environment.get('nuevoEmail')));"),
     pedido("Mi perfil sin sesión", "GET", "/api/usuarios/me", 401),
     pedido("Editar mi teléfono", "PATCH", "/api/usuarios/me", 200, token="nuevoToken", cuerpo={"telefono": "+54 11 4444 1111"},
+           headers={"If-Match": "{{perfilEtag}}"},
            pruebas="pm.test('quedó el nuevo', () => pm.expect(pm.response.json().telefono).to.eql('+54 11 4444 1111'));"),
+    pedido("Editar mi teléfono con un ETag viejo", "PATCH", "/api/usuarios/me", 412, token="nuevoToken",
+           cuerpo={"telefono": "+54 11 4444 2222"}, headers={"If-Match": "{{perfilEtag}}"}, pruebas=MODIFICADO),
     pedido("Editar con teléfono inválido", "PATCH", "/api/usuarios/me", 400, token="nuevoToken", cuerpo={"telefono": "abc"}),
     pedido("Perfil del administrador", "GET", "/api/usuarios/me", 200, token="adminToken",
            pruebas=guardar("adminId", "pm.response.json().id")),
@@ -242,7 +275,10 @@ usuarios = carpeta("06 Usuarios", "Perfil propio y listado para el administrador
     pedido("Listado de usuarios como cliente", "GET", "/api/usuarios", 403, token="nuevoToken"),
 ])
 
-ADMIN_EDITAR = {"usuarioId": "{{nuevoId}}", "espacioId": "{{espacioId}}", "inicio": "{{franjaInicio}}", "fin": "{{franjaFin}}",
+# The edit moves the booking to the second slot and confirms it. Moving it makes the request a real
+# change whether or not the asynchronous charge already confirmed it: with messaging on (docker
+# compose) the booking is usually CONFIRMADA by now, with messaging off (CI) it is still PENDIENTE.
+ADMIN_EDITAR = {"usuarioId": "{{nuevoId}}", "espacioId": "{{espacioId}}", "inicio": "{{franja2Inicio}}", "fin": "{{franja2Fin}}",
                 "motivo": "Confirmada por la administración"}
 administracion = carpeta("07 Administración", "Reservas, agenda, clientes, bloqueos y auditoría.", [
     pedido("Listado de reservas", "GET", "/api/admin/reservas", 200, token="adminToken", query={"q": "{{nuevoEmail}}"},
@@ -254,18 +290,21 @@ administracion = carpeta("07 Administración", "Reservas, agenda, clientes, bloq
     pedido("Buscar clientes", "GET", "/api/admin/clientes", 200, token="adminToken", query={"q": "{{nuevoEmail}}"},
            pruebas="pm.test('lo encuentra', () => pm.expect(pm.response.json()[0].id).to.eql(Number(pm.collectionVariables.get('nuevoId'))));"),
     pedido("Buscar clientes como cliente", "GET", "/api/admin/clientes", 403, token="nuevoToken"),
-    pedido("Confirmar la reserva", "PUT", "/api/admin/reservas/{{reservaId}}", 200, token="adminToken",
+    pedido("Mover y confirmar la reserva", "PUT", "/api/admin/reservas/{{reservaId}}", 200, token="adminToken",
            cuerpo={**ADMIN_EDITAR, "estado": "CONFIRMADA"},
-           pruebas="pm.test('queda confirmada', () => pm.expect(pm.response.json().estado).to.eql('CONFIRMADA'));"),
+           pruebas="pm.test('queda confirmada', () => pm.expect(pm.response.json().estado).to.eql('CONFIRMADA'));\n"
+           "pm.test('en el horario nuevo', () => pm.expect(pm.response.json().inicio.slice(0, 16))"
+           ".to.eql(pm.collectionVariables.get('franja2Inicio').slice(0, 16)));"),
     pedido("Volver la reserva a pendiente", "PUT", "/api/admin/reservas/{{reservaId}}", 409, token="adminToken",
            cuerpo={**ADMIN_EDITAR, "estado": "PENDIENTE"},
            pruebas="pm.test('transición inválida', () => pm.expect(pm.response.json().code).to.eql('TRANSICION_INVALIDA'));"),
     pedido("Reservar para un cliente", "POST", "/api/admin/reservas", 201, token="adminToken",
-           cuerpo={"usuarioId": "{{nuevoId}}", "espacioId": "{{espacioId}}", "inicio": "{{franja2Inicio}}", "fin": "{{franja2Fin}}"},
+           # The first slot, freed when the customer's booking moved to the second one.
+           cuerpo={"usuarioId": "{{nuevoId}}", "espacioId": "{{espacioId}}", "inicio": "{{franjaInicio}}", "fin": "{{franjaFin}}"},
            pruebas=guardar("adminReservaId", "pm.response.json().id")
            + "\npm.test('figura creada por el admin', () => pm.expect(pm.response.json().creadaPorAdmin).to.eql(true));"),
     pedido("Reservar para un administrador", "POST", "/api/admin/reservas", 400, token="adminToken",
-           cuerpo={"usuarioId": "{{adminId}}", "espacioId": "{{espacioId}}", "inicio": "{{franja2Inicio}}", "fin": "{{franja2Fin}}"}),
+           cuerpo={"usuarioId": "{{adminId}}", "espacioId": "{{espacioId}}", "inicio": "{{franjaInicio}}", "fin": "{{franjaFin}}"}),
     pedido("Eliminar reserva", "DELETE", "/api/admin/reservas/{{adminReservaId}}", 200, token="adminToken"),
     pedido("Eliminar reserva inexistente", "DELETE", f"/api/admin/reservas/{NO_EXISTE}", 404, token="adminToken"),
     pedido("Bloquear un espacio", "POST", "/api/admin/bloqueos", 201, token="adminToken",

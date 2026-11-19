@@ -1849,6 +1849,241 @@
           }
         },
         {
+          "name": "Agregar tarjeta con Idempotency-Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('medio2Id', pm.response.json().id);"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('claveTarjeta', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveTarjeta}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me/medios-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me",
+                "medios-pago"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titular\": \"CLIENTE POSTMAN\",\n  \"numeroTarjeta\": \"5500 0000 0000 0004\",\n  \"vencimiento\": \"12/35\",\n  \"codigoSeguridad\": \"123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Repetir el alta con la misma clave",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('es la respuesta repetida', () => pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true'));",
+                  "pm.test('no crea otra tarjeta', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('medio2Id'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveTarjeta}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me/medios-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me",
+                "medios-pago"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titular\": \"CLIENTE POSTMAN\",\n  \"numeroTarjeta\": \"5500 0000 0000 0004\",\n  \"vencimiento\": \"12/35\",\n  \"codigoSeguridad\": \"123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Misma clave con otra tarjeta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 422', () => pm.response.to.have.status(422));",
+                  "pm.test('el error trae mensaje', () => pm.expect(pm.response.json().message).to.be.a('string'));",
+                  "pm.test('código IDEMPOTENCY_KEY_REUTILIZADA', () => pm.expect(pm.response.json().code).to.eql('IDEMPOTENCY_KEY_REUTILIZADA'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveTarjeta}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me/medios-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me",
+                "medios-pago"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titular\": \"CLIENTE POSTMAN\",\n  \"numeroTarjeta\": \"4000 0000 0000 0002\",\n  \"vencimiento\": \"12/35\",\n  \"codigoSeguridad\": \"123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Tarjeta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('medioEtag', pm.response.headers.get('ETag'));",
+                  "pm.test('trae ETag', () => pm.expect(pm.response.headers.get('ETag')).to.match(/^\"\\d+\"$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me/medios-pago/{{medioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me",
+                "medios-pago",
+                "{{medioId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "Tarjeta inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 404', () => pm.response.to.have.status(404));",
+                  "pm.test('el error trae mensaje', () => pm.expect(pm.response.json().message).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me/medios-pago/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me",
+                "medios-pago",
+                "999999"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
           "name": "Editar tarjeta",
           "event": [
             {
@@ -1868,6 +2103,10 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{medioEtag}}"
               },
               {
                 "key": "Content-Type",
@@ -1891,6 +2130,57 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"titular\": \"TITULAR EDITADO\",\n  \"vencimiento\": \"10/36\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Editar tarjeta con un ETag viejo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 412', () => pm.response.to.have.status(412));",
+                  "pm.test('el error trae mensaje', () => pm.expect(pm.response.json().message).to.be.a('string'));",
+                  "pm.test('código RECURSO_MODIFICADO', () => pm.expect(pm.response.json().code).to.eql('RECURSO_MODIFICADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{medioEtag}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me/medios-pago/{{medioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me",
+                "medios-pago",
+                "{{medioId}}"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titular\": \"OTRO TITULAR\",\n  \"vencimiento\": \"10/36\"\n}"
             }
           }
         },
@@ -2036,6 +2326,15 @@
                   "pm.test('queda pendiente de cobro', () => pm.expect(pm.response.json().estado).to.eql('PENDIENTE'));"
                 ]
               }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('claveReserva', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
             }
           ],
           "request": {
@@ -2044,6 +2343,58 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveReserva}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reservas"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franjaInicio}}\",\n  \"fin\": \"{{franjaFin}}\",\n  \"medioPagoId\": \"{{medioId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reservar otra vez con la misma clave (doble clic)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 201', () => pm.response.to.have.status(201));",
+                  "pm.test('es la respuesta repetida', () => pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true'));",
+                  "pm.test('es la misma reserva', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('reservaId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{claveReserva}}"
               },
               {
                 "key": "Content-Type",
@@ -2307,6 +2658,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('perfilEtag', pm.response.headers.get('ETag'));",
+                  "pm.test('trae ETag', () => pm.expect(pm.response.headers.get('ETag')).to.match(/^\"\\d+\"$/));",
                   "pm.test('es el usuario confirmado', () => pm.expect(pm.response.json().email).to.eql(pm.environment.get('nuevoEmail')));"
                 ]
               }
@@ -2387,6 +2740,10 @@
                 "value": "Bearer {{nuevoToken}}"
               },
               {
+                "key": "If-Match",
+                "value": "{{perfilEtag}}"
+              },
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
@@ -2406,6 +2763,55 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"telefono\": \"+54 11 4444 1111\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Editar mi teléfono con un ETag viejo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 412', () => pm.response.to.have.status(412));",
+                  "pm.test('el error trae mensaje', () => pm.expect(pm.response.json().message).to.be.a('string'));",
+                  "pm.test('código RECURSO_MODIFICADO', () => pm.expect(pm.response.json().code).to.eql('RECURSO_MODIFICADO'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{nuevoToken}}"
+              },
+              {
+                "key": "If-Match",
+                "value": "{{perfilEtag}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/usuarios/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "usuarios",
+                "me"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telefono\": \"+54 11 4444 2222\"\n}"
             }
           }
         },
@@ -2806,7 +3212,7 @@
           }
         },
         {
-          "name": "Confirmar la reserva",
+          "name": "Mover y confirmar la reserva",
           "event": [
             {
               "listen": "test",
@@ -2814,7 +3220,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
-                  "pm.test('queda confirmada', () => pm.expect(pm.response.json().estado).to.eql('CONFIRMADA'));"
+                  "pm.test('queda confirmada', () => pm.expect(pm.response.json().estado).to.eql('CONFIRMADA'));",
+                  "pm.test('en el horario nuevo', () => pm.expect(pm.response.json().inicio.slice(0, 16)).to.eql(pm.collectionVariables.get('franja2Inicio').slice(0, 16)));"
                 ]
               }
             }
@@ -2846,7 +3253,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{nuevoId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franjaInicio}}\",\n  \"fin\": \"{{franjaFin}}\",\n  \"motivo\": \"Confirmada por la administración\",\n  \"estado\": \"CONFIRMADA\"\n}"
+              "raw": "{\n  \"usuarioId\": \"{{nuevoId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franja2Inicio}}\",\n  \"fin\": \"{{franja2Fin}}\",\n  \"motivo\": \"Confirmada por la administración\",\n  \"estado\": \"CONFIRMADA\"\n}"
             }
           }
         },
@@ -2892,7 +3299,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{nuevoId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franjaInicio}}\",\n  \"fin\": \"{{franjaFin}}\",\n  \"motivo\": \"Confirmada por la administración\",\n  \"estado\": \"PENDIENTE\"\n}"
+              "raw": "{\n  \"usuarioId\": \"{{nuevoId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franja2Inicio}}\",\n  \"fin\": \"{{franja2Fin}}\",\n  \"motivo\": \"Confirmada por la administración\",\n  \"estado\": \"PENDIENTE\"\n}"
             }
           }
         },
@@ -2937,7 +3344,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{nuevoId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franja2Inicio}}\",\n  \"fin\": \"{{franja2Fin}}\"\n}"
+              "raw": "{\n  \"usuarioId\": \"{{nuevoId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franjaInicio}}\",\n  \"fin\": \"{{franjaFin}}\"\n}"
             }
           }
         },
@@ -2981,7 +3388,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"usuarioId\": \"{{adminId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franja2Inicio}}\",\n  \"fin\": \"{{franja2Fin}}\"\n}"
+              "raw": "{\n  \"usuarioId\": \"{{adminId}}\",\n  \"espacioId\": \"{{espacioId}}\",\n  \"inicio\": \"{{franjaInicio}}\",\n  \"fin\": \"{{franjaFin}}\"\n}"
             }
           }
         },
