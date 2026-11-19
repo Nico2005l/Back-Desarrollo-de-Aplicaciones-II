@@ -28,8 +28,8 @@ public class PwnedPasswordsCliente implements ConsultaFiltraciones {
 
     public PwnedPasswordsCliente(RestClient.Builder builder) {
         SimpleClientHttpRequestFactory tiempos = new SimpleClientHttpRequestFactory();
-        tiempos.setConnectTimeout(3000);
-        tiempos.setReadTimeout(3000);
+        tiempos.setConnectTimeout(5000);
+        tiempos.setReadTimeout(5000);
         this.http = builder.requestFactory(tiempos).build();
     }
 

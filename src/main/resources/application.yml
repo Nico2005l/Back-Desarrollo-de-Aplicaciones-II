@@ -104,6 +104,12 @@ app:
   pasarela:
     # Response time of the simulated payment provider, so the PENDIENTE state is visible in a demo.
     demora-ms: ${PASARELA_DEMORA_MS:1500}
+    # Delay of the simulated refunds; above timeout-ms it shows the timeout of a cancellation.
+    demora-reintegro-ms: ${PASARELA_DEMORA_REINTEGRO_MS:0}
+    # Every call to the provider is cut here (criterion: 5 s) and goes through a circuit breaker.
+    timeout-ms: ${PASARELA_TIMEOUT_MS:5000}
+    circuito:
+      abierto-segundos: ${PASARELA_CIRCUITO_ABIERTO_SEGUNDOS:30}
 
   # Pesos per hour of each space kind; a booking is charged per minute.
   tarifas:

@@ -47,6 +47,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(new ErrorResponse(ex.getMessage(), null, ex.getCode()));
     }
 
+    // The provider is down or slow: the client is told when to try again.
+    @ExceptionHandler(PasarelaNoDisponibleException.class)
+    public ResponseEntity<ErrorResponse> handlePasarela(PasarelaNoDisponibleException ex) {
+        log.warn("Pedido sin completar: pasarela de pagos no disponible ({})", ex.getMotivo());
+        return ResponseEntity.status(ex.getStatus())
+                .header("Retry-After", String.valueOf(PasarelaNoDisponibleException.REINTENTAR_EN_SEGUNDOS))
+                .body(new ErrorResponse(ex.getMessage(), null, ex.getCode()));
+    }
+
     // More specific than ApiException, so Spring picks this one: the body adds the alternatives.
     @ExceptionHandler(FranjaTomadaException.class)
     public ResponseEntity<FranjaTomada> handleFranjaTomada(FranjaTomadaException ex) {

@@ -54,9 +54,18 @@ public class GmailApiEmailService extends AbstractEmailService {
     private Instant accessTokenVence = Instant.EPOCH;
 
     // Two constructors (the other one is for tests): Spring must be told which to use.
+    // Google gets 5 s per call, like every external system: a hung call never holds the mail thread.
     @Autowired
     public GmailApiEmailService(RestClient.Builder builder) {
-        this(builder, Clock.systemUTC());
+        this(builder.requestFactory(tiempos()), Clock.systemUTC());
+    }
+
+    private static org.springframework.http.client.SimpleClientHttpRequestFactory tiempos() {
+        org.springframework.http.client.SimpleClientHttpRequestFactory tiempos =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        tiempos.setConnectTimeout(5000);
+        tiempos.setReadTimeout(5000);
+        return tiempos;
     }
 
     GmailApiEmailService(RestClient.Builder builder, Clock clock) {

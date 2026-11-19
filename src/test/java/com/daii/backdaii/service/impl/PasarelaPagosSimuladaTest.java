@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PasarelaPagosSimuladaTest {
 
-    private final PasarelaPagosSimulada pasarela = new PasarelaPagosSimulada(0);
+    private final PasarelaPagosSimulada pasarela = new PasarelaPagosSimulada(0, 0);
 
     private static SolicitudPago solicitud(String ultimos4) {
         return new SolicitudPago("R-1", new BigDecimal("7000.00"), ultimos4, "Ana Pérez");
@@ -39,5 +39,33 @@ class PasarelaPagosSimuladaTest {
     void laTarjetaTerminadaEn0119SimulaUnaFallaTecnica() {
         assertThatThrownBy(() -> pasarela.cobrar(solicitud(PasarelaPagosSimulada.TERMINACION_FALLA_TECNICA)))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void laTarjetaTerminadaEn0077TardaMasQueElLimiteYSeCortaAlInterrumpirla() throws Exception {
+        assertThat(PasarelaPagosSimulada.DEMORA_SIN_RESPUESTA_MS).isGreaterThan(5_000);
+        java.util.concurrent.atomic.AtomicReference<Throwable> error = new java.util.concurrent.atomic.AtomicReference<>();
+        Thread hilo = Thread.ofVirtual().start(() -> {
+            try {
+                pasarela.cobrar(solicitud(PasarelaPagosSimulada.TERMINACION_SIN_RESPUESTA));
+            } catch (RuntimeException e) {
+                error.set(e);
+            }
+        });
+        Thread.sleep(50);
+        hilo.interrupt();
+        hilo.join(1_000);
+
+        assertThat(hilo.isAlive()).isFalse();
+        assertThat(error.get()).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void elReintegroSeApruebaConReferenciaPropia() {
+        ResultadoPago resultado = pasarela.reintegrar(new com.daii.backdaii.service.PasarelaPagos.SolicitudReintegro(
+                "SIM-1", new BigDecimal("100.00")));
+
+        assertThat(resultado.aprobado()).isTrue();
+        assertThat(resultado.referencia()).startsWith("SIM-R-");
     }
 }

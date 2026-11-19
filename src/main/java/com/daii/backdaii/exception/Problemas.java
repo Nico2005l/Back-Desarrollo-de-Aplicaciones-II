@@ -27,9 +27,13 @@ public final class Problemas {
             Map.entry(404, "No encontrado"),
             Map.entry(405, "Método no permitido"),
             Map.entry(409, "Conflicto con el estado actual"),
+            Map.entry(412, "El recurso cambió"),
             Map.entry(415, "Tipo de contenido no soportado"),
+            Map.entry(422, "Solicitud no procesable"),
+            Map.entry(428, "Falta una precondición"),
             Map.entry(429, "Demasiadas solicitudes"),
-            Map.entry(500, "Error inesperado"));
+            Map.entry(500, "Error inesperado"),
+            Map.entry(503, "Servicio no disponible"));
 
     private Problemas() {
     }
