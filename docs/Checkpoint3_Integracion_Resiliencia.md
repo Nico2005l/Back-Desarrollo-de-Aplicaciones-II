@@ -184,14 +184,7 @@ Todos los errores emitidos por la API adoptan el tipo de contenido estándar `ap
 
 ## 3. Estado de la Funcionalidad de IA
 
-### 3.1 Estado actual: asistente de navegación en desarrollo
-
-El asistente recibe consultas en lenguaje natural y sugiere a qué pantalla ir. Está en desarrollo; hoy existen el contrato y el catálogo de acciones, en los dos repositorios:
-* **`AsistenteDtos`:** contrato HTTP. La consulta lleva un `message` de hasta 1000 caracteres; la respuesta trae `message`, `action` y `buttonLabel`.
-* **Catálogo cerrado de acciones** (`acciones.ts` y enum `Accion`): `GO_TO_RESERVATIONS`, `GO_TO_MY_RESERVATIONS` y `GO_TO_AVAILABILITY`. El asistente devuelve un identificador, nunca una URL: un valor desconocido no navega y la autorización de cada pantalla sigue a cargo de las rutas protegidas.
-* **Pendiente:** todavía no están implementados el endpoint del asistente ni la conexión con un proveedor de modelo.
-
-### 3.2 Análisis de Viabilidad y Decisión de Alcance
+### 3.1 Análisis de Viabilidad y Decisión de Alcance
 
 En el marco del estudio documentado en [PropuestasIA.md](PropuestasIA.md), el equipo evaluó tres casos de uso:
 1. *Búsqueda de espacios por lenguaje natural:* Conversión de texto libre a parámetros de búsqueda.
@@ -202,9 +195,17 @@ En el marco del estudio documentado en [PropuestasIA.md](PropuestasIA.md), el eq
 * El catálogo del sistema cuenta con un dominio acotado de 522 espacios estructurados en 4 tipos cerrados, niveles de ruido fijos y equipamiento tipificado.
 * Todo requerimiento funcional se resuelve con mayor eficiencia computacional, cero costo operativo y **100 % de determinismo mediante lógica algorítmica convencional** (`MotorDisponibilidad` en memoria, cálculo de intersección de conjuntos y asignación greedy), ahorrando entre un 35 % y un 85 % de horas de desarrollo.
 * Someter el runtime transaccional a APIs externas de LLMs introducía variabilidad estocástica no asegurable por pruebas unitarias, latencia imprevisible y riesgos de corte de servicio por límites de cuota en entornos demo.
-* Por consiguiente, **la IA no participa de las reglas de negocio** (disponibilidad, reservas y cobros): se limita al asistente de navegación de la sección 3.1, que no modifica datos. Ver [PropuestasIA.md](PropuestasIA.md).
+* Por consiguiente, **la funcionalidad de IA en tiempo de ejecución quedó fuera de alcance**: en los tres casos la versión convencional resuelve el mismo problema con menos esfuerzo, sin dependencias externas y con resultados deterministas que se prueban con JUnit. Por eso tampoco hay un gateway de IA: no hay ninguna llamada a un modelo que necesite pasar por él.
 
-### 3.3 Uso de IA en el Proceso de Ingeniería
+| Idea | Con IA | Convencional | Ahorro |
+|---|---|---|---|
+| Búsqueda de espacios | 31–44 h, depende del cupo de una API externa | 5–8 h (filtros en el plano) o 14–21 h (búsqueda en todos los edificios) | 50 % a 85 % |
+| Reubicación por bloqueo | 32–45 h | 20–28 h | 35 % a 40 % |
+| Demanda y ocupación | No estimable: no hay datos reales para entrenar ni validar | 8–12 h | — |
+
+El detalle de cada propuesta y de su versión convencional está en [PropuestasIA.md](PropuestasIA.md).
+
+### 3.2 Uso de IA en el Proceso de Ingeniería
 
 La inteligencia artificial se incorporó formalmente como acelerador del **proceso de calidad y testing (Eje E)**:
 * Asistencia en el diseño de mutantes para PITest.
@@ -265,7 +266,7 @@ El plan de pruebas formal está estructurado bajo la norma **ISO/IEC/IEEE 29119-
 ### 5.1 Alcance del Testing
 
 * **Dentro del alcance:** Endpoints REST de la API, persistencia en PostgreSQL con migraciones Flyway, mensajería asincrónica en RabbitMQ con TLS, adaptadores simulados (pasarela de pagos, Gmail API, HIBP, control de accesos), flujos de usuario cliente y administrador en React 19.
-* **Fuera del alcance:** Interfaz SOAP (inexistente en el ecosistema), IA en las reglas de negocio y pasarela de cobros real en producción.
+* **Fuera del alcance:** Interfaz SOAP (inexistente en el ecosistema), funcionalidad de IA en tiempo de ejecución (ver sección 3) y pasarela de cobros real en producción.
 
 ### 5.2 Niveles de Prueba y Herramientas
 
