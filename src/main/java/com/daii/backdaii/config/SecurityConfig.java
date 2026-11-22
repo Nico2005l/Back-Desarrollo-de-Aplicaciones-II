@@ -73,7 +73,8 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
                         .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy",
-                                "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")))
+                                "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"))
+                        .addHeaderWriter(new StaticHeadersWriter("Cross-Origin-Resource-Policy", "same-origin")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health", "/api/auth/register", "/api/auth/login", "/api/auth/email-disponible", "/api/auth/confirmar-email", "/api/auth/reenviar-confirmacion", "/api/auth/forgot-password", "/api/auth/reset-password",
                                 "/api/auth/login/segundo-factor", "/api/auth/refresh", "/api/auth/logout").permitAll()
