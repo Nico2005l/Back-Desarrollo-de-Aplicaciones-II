@@ -53,6 +53,7 @@ class CabecerasSeguridadIntegracionTest extends IntegracionBase {
         assertThat(cabeceras.firstValue("X-Content-Type-Options")).contains("nosniff");
         assertThat(cabeceras.firstValue("X-Frame-Options")).contains("DENY");
         assertThat(cabeceras.firstValue("Referrer-Policy")).contains("no-referrer");
+        assertThat(cabeceras.firstValue("Cross-Origin-Resource-Policy")).contains("same-origin");
         assertThat(cabeceras.firstValue("Permissions-Policy")).hasValueSatisfying(politica ->
                 assertThat(politica).contains("camera=()", "geolocation=()", "payment=()"));
         assertThat(cabeceras.firstValue("Server")).isEmpty();
