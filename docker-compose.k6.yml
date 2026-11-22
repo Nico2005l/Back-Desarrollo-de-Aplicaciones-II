@@ -1,0 +1,40 @@
+# Local load-test overlay. Always use with a unique Compose project name; its database volume is
+# separate from every other project. No production host, database, or credentials are accepted.
+services:
+  init:
+    volumes:
+      - k6-certificados:/certs
+
+  rabbitmq:
+    ports: !override []
+    volumes:
+      - k6-certificados:/etc/rabbitmq/certs:ro
+
+  back:
+    ports: !override
+      - "127.0.0.1:${API_PUERTO:-18080}:8080"
+    environment:
+      DEMO_HABILITADO: "false"
+      VERIFICAR_FILTRACIONES_HIBP: "false"
+      MAIL_LOG_LINKS: "true"
+      SPRING_MAIL_USERNAME: ""
+      SPRING_MAIL_PASSWORD: ""
+      SHOW_SQL: "false"
+    volumes:
+      - k6-certificados:/certs:ro
+
+  k6:
+    image: grafana/k6:1.8.2
+    profiles: ["k6"]
+    depends_on:
+      back:
+        condition: service_healthy
+    working_dir: /scripts
+    volumes:
+      - ./k6:/scripts:ro
+    environment:
+      BASE_URL: http://back:8080
+      USERS_FILE: /scripts/data/usuarios.json
+
+volumes:
+  k6-certificados:

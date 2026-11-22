@@ -47,3 +47,6 @@ docker/rabbitmq/certs/
 
 # Output of the API tests (environment with this run's secrets, reports)
 api-tests/out/
+
+# Temporary k6 accounts and access tokens generated for a local isolated load test.
+k6/data/
