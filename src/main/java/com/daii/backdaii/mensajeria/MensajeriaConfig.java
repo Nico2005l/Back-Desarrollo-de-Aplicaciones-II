@@ -9,6 +9,7 @@ import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
@@ -110,9 +111,24 @@ public class MensajeriaConfig {
         return new FirmaMensajes(secreto);
     }
 
-    /** JSON on the wire (readable in the RabbitMQ console); Boot wires it into the template and the listeners. */
+    /**
+     * JSON on the wire (readable in the RabbitMQ console); Boot wires it into the template and the listeners.
+     *
+     * <p>Spring AMQP 3.2 (Spring Boot 3.5) stopped trusting every package when deserializing: by
+     * default only {@code java.util} and {@code java.lang} are accepted, which makes our own events
+     * fail with "is not in the trusted packages". Only the packages that actually travel on the
+     * wire are declared, never {@code *}.
+     */
     @Bean
     MessageConverter conversorJson(ObjectMapper objectMapper) {
-        return new Jackson2JsonMessageConverter(objectMapper);
+        Jackson2JsonMessageConverter conversor = new Jackson2JsonMessageConverter(objectMapper);
+        DefaultJackson2JavaTypeMapper tipos = new DefaultJackson2JavaTypeMapper();
+        tipos.setTrustedPackages(
+                "java.util",
+                "java.lang",
+                "com.daii.backdaii.mensajeria",
+                "com.daii.backdaii.domain.evento");
+        conversor.setJavaTypeMapper(tipos);
+        return conversor;
     }
 }

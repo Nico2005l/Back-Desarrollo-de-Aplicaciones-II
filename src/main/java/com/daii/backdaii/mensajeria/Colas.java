@@ -20,6 +20,8 @@ public final class Colas {
      */
     public static final String EXCHANGE_EVENTOS = "planta-libre.eventos";
     public static final String RESERVA_CONFIRMADA = "reserva.confirmada";
+    /** A booking stopped taking its slot, whoever cancelled it. Same topic, same subscribers. */
+    public static final String RESERVA_CANCELADA = "reserva.cancelada";
     /** Every booking event, whatever happened to it: what the audit subscribes to. */
     public static final String TODO_RESERVA = "reserva.*";
 

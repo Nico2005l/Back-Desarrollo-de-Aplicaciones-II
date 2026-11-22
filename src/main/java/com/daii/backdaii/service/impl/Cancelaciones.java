@@ -59,7 +59,7 @@ class Cancelaciones {
 
         reserva.cambiarEstado(EstadoReserva.CANCELADA);
 
-        eventos.publishEvent(new ReservaCancelada(reserva.getCodigo(),
+        eventos.publishEvent(new ReservaCancelada(reserva.getId(), reserva.getCodigo(),
                 Vistas.describir(reserva.getEspacio(), new Franja(reserva.getInicio(), reserva.getFin())),
                 reserva.getUsuario().getEmail(), reserva.getUsuario().getNombre(), motivo, detalle,
                 cobrado, reintegrado, porcentaje));

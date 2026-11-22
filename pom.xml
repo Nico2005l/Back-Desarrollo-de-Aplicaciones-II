@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.3</version>
+        <version>3.5.16</version>
         <relativePath/>
     </parent>
 
@@ -20,16 +20,43 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <resilience4j.version>2.2.0</resilience4j.version>
-        <!-- Newer than the one Spring Boot 3.3 manages: older clients are rejected by Docker Engine 29. -->
+        <resilience4j.version>2.4.0</resilience4j.version>
+        <!-- Pinned on purpose: older Docker clients are rejected by Docker Engine 29. Matches the
+             version Spring Boot 3.5 manages, so the pin only documents and protects the constraint. -->
         <testcontainers.version>1.21.4</testcontainers.version>
         <!-- Coverage gate of the business layer (criteria: 80 % lines, 70 % branches): below it the
              build fails. -->
         <cobertura.exigir>true</cobertura.exigir>
         <mapstruct.version>1.6.3</mapstruct.version>
-        <lombok.version>1.18.38</lombok.version>
+        <!-- lombok.version comes from the Spring Boot parent, so the compiler and the annotation
+             processor always use the same version. -->
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+
+        <!-- Security overrides on top of the versions Spring Boot 3.5.16 manages (OSV-Scanner,
+             2026-11-22). Each one is the smallest version that fixes the advisories found; see
+             docs/Dependencias.md. spring-framework stays at the 6.2.x line because the two 9.8
+             advisories of spring-webmvc have no fix published for 6.2.x (only 7.0.9), and moving
+             to 7.0.x means moving to Spring Boot 4. -->
+        <jackson-bom.version>2.21.8</jackson-bom.version>
+        <tomcat.version>10.1.62</tomcat.version>
+        <postgresql.version>42.7.14</postgresql.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <log4j2.version>2.25.5</log4j2.version>
+        <rabbit-amqp-client.version>5.38.0</rabbit-amqp-client.version>
+        <netty.version>4.1.139.Final</netty.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Test-scope only (comes in through Testcontainers), and Spring Boot does not manage
+                 it. Pinned here so the OSV-Scanner run reports the patched version. -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>1.28.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -126,7 +153,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
-            <version>2.6.0</version>
+            <version>2.8.17</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -174,7 +201,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.12</version>
+                <version>0.8.13</version>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -230,12 +257,12 @@
             <plugin>
                 <groupId>org.pitest</groupId>
                 <artifactId>pitest-maven</artifactId>
-                <version>1.17.0</version>
+                <version>1.19.1</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.pitest</groupId>
                         <artifactId>pitest-junit5-plugin</artifactId>
-                        <version>1.2.1</version>
+                        <version>1.2.3</version>
                     </dependency>
                 </dependencies>
                 <configuration>
@@ -275,7 +302,7 @@
             <plugin>
                 <groupId>com.github.spotbugs</groupId>
                 <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.8.6.6</version>
+                <version>4.9.3.0</version>
                 <configuration>
                     <effort>Max</effort>
                     <threshold>High</threshold>

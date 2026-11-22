@@ -161,7 +161,7 @@ Historias: [F-32](https://github.com/pedroberro/Front-Desarrollo-de-Aplicaciones
 | **B-20.a** La reserva confirmada se publica en el tópico y llega a cada suscriptor | Cobro aprobado: habilitación en el control de acceso y registro en la auditoría; confirmación manual del administrador: evento con origen `ADMINISTRADOR` | P | `MensajeriaIntegracionTest.unCobroAprobadoLlegaPorElTopicoAlControlDeAccesoYALaAuditoria`<br>`AdminReservasIntegracionTest.confirmarAManoPublicaReservaConfirmadaConOrigenAdministrador`<br>`ControlAccesoSimuladoTest` (2 casos) | Pasa | E1 | — |
 | **B-20.b** Solo se publica al confirmar | Mover una reserva sin confirmarla no publica nada | N | `AdminReservasIntegracionTest.moverUnaReservaSinConfirmarlaNoPublicaReservaConfirmada` | Pasa | E1 | — |
 | **B-20.c** El evento sale solo si la transacción confirma, y espera si el broker está caído | Rollback: no queda en el outbox; broker caído: los eventos esperan y salen en orden | B | `MensajeriaIntegracionTest.elEventoSoloQuedaEnElOutboxSiLaTransaccionConfirma`, `.conElBrokerCaidoLosEventosEsperanYSalenEnOrdenCuandoVuelve`, `.losEventosPublicadosViejosSePurgan` | Pasa | E1 | — |
-| **B-20.d** Se publica también la reserva cancelada | Cancelar una reserva y verla en el tópico | P | — | No implementado (solo `reserva.confirmada`) | — | — |
+| **B-20.d** Se publica también la reserva cancelada | Cancelar una reserva y verla en el tópico con la clave `reserva.cancelada` | P | `MensajeriaIntegracionTest.unaCancelacionTambienSalePorElOutboxYLlegaALaAuditoria` | Pasa | E1 | #121 (resuelto) |
 
 ## 5. Administración
 
@@ -243,7 +243,7 @@ El texto de algunas historias quedó atrás de lo implementado. La matriz prueba
 | F-14 | Errores con `code`, `message` y `fields` | Problem Details (RFC 9457) con `code` y `fields` |
 | F-18 | El registro devuelve el token e inicia sesión | La cuenta nace pendiente y se inicia sesión al confirmar el mail (B-1) |
 | F-19 | Tope de intentos por IP y email | Tope de intentos por cuenta (B-15) |
-| B-20 | Publicar reserva confirmada y cancelada | Solo se publica `reserva.confirmada` |
+| B-20 | Publicar reserva confirmada y cancelada | Se publican las dos por el outbox, con las claves `reserva.confirmada` y `reserva.cancelada` |
 | B-26 a B-35 (SEC) | «Situación actual (no cumple)» y estado *To Do* | Los diez criterios están implementados |
 | B-20, B-24 | Estado *To Do* | Implementados: el tópico existe y el CI corre los tests en cada push |
 | B-21 | Servicio SOAP de facturación, *To Do* | Fuera del alcance ([Integracion.md](Integracion.md), sección 2) |

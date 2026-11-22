@@ -29,4 +29,5 @@ Opción 3:
 - El evento existe si y solo si la confirmación hizo commit, y no se pierde con el broker caído. Lo prueba `MensajeriaIntegracionTest.conElBrokerCaidoLosEventosEsperanYSalenEnOrdenCuandoVuelve`.
 - La entrega es *al menos una vez*. Si se pierde la confirmación del broker, el evento sale de nuevo con el mismo id, y los suscriptores descartan la copia gracias a `mensajes_procesados`.
 - Entre la confirmación y la publicación pasan hasta 2 segundos. Se suma una tabla, que se purga a los 7 días.
+- El mismo mecanismo publica `reserva.cancelada` desde `Cancelaciones` (defecto #121): la tabla y el relay no dependen del tipo de evento.
 - Se descartó la opción 4 porque suma un componente más que operar (Kafka Connect o Debezium Server) sin ninguna ganancia a esta escala.
