@@ -17,7 +17,7 @@ Estructura basada en ISO/IEC/IEEE 29119-3, según los Criterios de Testing de la
 | Catálogo y disponibilidad | Empresas, edificios, pisos, plano, espacios, franjas libres, reglas de reserva |
 | Reservas | Alta por el cliente y por el administrador, franja tomada con alternativas, estados (patrón State, 409 ante transición inválida), cancelación con política de reintegro |
 | Cobro asincrónico | Publicación, consumo idempotente, reintentos, DLQ, barrido, broker caído |
-| Tópico de eventos | Outbox transaccional, relay con confirmación del broker, broker caído, tres suscriptores de `reserva.confirmada`, deduplicación por suscriptor, DLQ por cola |
+| Tópico de eventos | Outbox transaccional, relay con confirmación del broker, broker caído, los dos eventos de reservas (`reserva.confirmada` y `reserva.cancelada`), suscriptores de la confirmación y de la auditoría, deduplicación por suscriptor, DLQ por cola |
 | Medios de pago | Alta, edición, principal, baja; solo se guardan los últimos 4 dígitos |
 | Bloqueos | Bloqueo de espacios con reservas afectadas |
 | Resiliencia y API | Timeout de 5 s con fallback, circuit breaker, Idempotency-Key, ETag/If-Match, Problem Details |

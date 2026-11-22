@@ -9,6 +9,7 @@ import com.daii.backdaii.domain.repository.EspacioRepository;
 import com.daii.backdaii.domain.repository.MedioPagoRepository;
 import com.daii.backdaii.domain.repository.ReservaRepository;
 import com.daii.backdaii.domain.repository.UsuarioRepository;
+import com.daii.backdaii.domain.evento.ReservaCancelada;
 import com.daii.backdaii.domain.evento.ReservaConfirmada;
 import com.daii.backdaii.mensajeria.CanalEventos;
 import com.daii.backdaii.mensajeria.CobroSolicitado;
@@ -217,6 +218,36 @@ class MensajeriaIntegracionTest extends IntegracionBase {
     }
 
     @Test
+    void unaCancelacionTambienSalePorElOutboxYLlegaALaAuditoria() {
+        long reservaId = 940_000_000L + System.nanoTime() % 1_000_000;
+        long revertida = reservaId + 1;
+        String codigo = "R-" + reservaId;
+
+        // Written in the cancellation's own transaction, still unpublished: the relay is held back.
+        transaccion.executeWithoutResult(estado -> eventosDeDominio.publishEvent(cancelada(reservaId)));
+        assertThat(jdbc.queryForObject("SELECT routing_key FROM eventos_salientes WHERE reserva_id = ?",
+                String.class, reservaId)).isEqualTo(Colas.RESERVA_CANCELADA);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM eventos_salientes WHERE reserva_id = ? AND publicado_el IS NULL",
+                Integer.class, reservaId)).isEqualTo(1);
+
+        // Rolled back, the cancellation's event disappears with it, same as a confirmation's.
+        transaccion.executeWithoutResult(estado -> {
+            eventosDeDominio.publishEvent(cancelada(revertida));
+            estado.setRollbackOnly();
+        });
+        assertThat(eventosDe(revertida)).isZero();
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            relay(canal).publicarPendientes();
+            assertThat(auditadasCanceladas(codigo)).isEqualTo(1);
+        });
+        // It reaches the audit, not the subscribers of the confirmation.
+        assertThat(auditadas(codigo)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM eventos_salientes WHERE reserva_id = ? AND publicado_el IS NOT NULL",
+                Integer.class, reservaId)).isEqualTo(1);
+    }
+
+    @Test
     void unEventoRepublicadoConElMismoIdSeProcesaUnaSolaVez() {
         long reservaId = 900_000_000L + System.nanoTime() % 1_000_000;
         EventoSaliente evento = eventoDePrueba(reservaId);
@@ -310,6 +341,17 @@ class MensajeriaIntegracionTest extends IntegracionBase {
     private int auditadas(String codigoReserva) {
         return jdbc.queryForObject("SELECT count(*) FROM auditoria WHERE evento = 'RESERVA_CONFIRMADA' AND detalle LIKE ?",
                 Integer.class, codigoReserva + " %");
+    }
+
+    private int auditadasCanceladas(String codigoReserva) {
+        return jdbc.queryForObject("SELECT count(*) FROM auditoria WHERE evento = 'RESERVA_CANCELADA' AND detalle LIKE ?",
+                Integer.class, codigoReserva + " %");
+    }
+
+    private ReservaCancelada cancelada(long reservaId) {
+        return new ReservaCancelada(reservaId, "R-" + reservaId, "Cubículo de prueba",
+                "prueba@pruebas.plantalibre.local", "Prueba", ReservaCancelada.Motivo.CLIENTE, null,
+                new java.math.BigDecimal("7000.00"), new java.math.BigDecimal("3500.00"), 50);
     }
 
     private ReservaConfirmada confirmada(long reservaId) {

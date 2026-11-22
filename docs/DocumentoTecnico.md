@@ -147,7 +147,7 @@ El servicio de correo también lo crea y lo inicializa el contenedor, con un mé
 **Dónde:** en dos niveles.
 
 - **Dentro de la aplicación:** los eventos de dominio `ReservaCreada`, `ReservaConfirmada`, `CobroResuelto`, `CobroReencolado` y `ReservaCancelada`. Los escuchan `PublicadorCobros`, `OutboxEventos`, `AvisosDeCobro` y `AvisosDeCancelacion` con `@TransactionalEventListener`.
-- **Entre componentes:** el tópico `planta-libre.eventos`, con tres suscriptores de `reserva.confirmada` (avisos, control de acceso y auditoría).
+- **Entre componentes:** el tópico `planta-libre.eventos`. Dos eventos de reservas (`reserva.confirmada` y `reserva.cancelada`), cada uno con los suscriptores que le corresponden: avisos y control de acceso escuchan la confirmación, y la auditoría escucha `reserva.*`, o sea las dos.
 **Por qué:** quien crea, confirma o cancela una reserva no sabe quién reacciona: el mail, la cola de cobros, el control de acceso. Los oyentes corren **después del commit**, o escriben en el outbox **antes del commit** y dentro de la misma transacción, así que nunca sale un mail ni un mensaje por una reserva que hizo rollback. Agregar una reacción nueva no toca al servicio que publica.
 
 ### Decorator

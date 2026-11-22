@@ -123,7 +123,7 @@ Los servicios de negocio no conocen RabbitMQ: publican eventos de dominio de Spr
 
 Ninguno debería conocer a los otros, y agregar uno nuevo no debería tocar al publicador. Eso es un tópico: un mensaje, una copia por suscriptor. Cada suscriptor tiene su propia cola, así que si uno está caído o falla, los otros siguen.
 
-La auditoría se suscribe con el patrón `reserva.*` y no con la clave exacta: cuando se publique otro evento de reservas, por ejemplo `reserva.cancelada`, le llega sin cambiar nada.
+La auditoría se suscribe con el patrón `reserva.*` y no con la clave exacta: hoy recibe `reserva.confirmada` y `reserva.cancelada`, y cualquier evento nuevo de reservas le llega sin cambiar la topología.
 
 **Gmail API: REST síncrono, fuera del pedido.** Google ofrece el envío solamente como API REST. La llamada se hace en otro hilo (`@Async`), con un timeout de 5 s, para que el tiempo de respuesta no revele si una cuenta existe y para que una falla del correo no rompa el flujo.
 
@@ -265,13 +265,43 @@ El mensaje viaja en JSON y lleva solamente el id de la reserva. El consumidor le
 |---|---|---|---|
 | Avisos | `planta-libre.avisos.reserva-confirmada` | `reserva.confirmada` | Manda "Tu reserva está confirmada" con el monto y la tarjeta. Si la confirmó un administrador no manda nada, porque el cliente ya recibió el mail "Cambió tu reserva" |
 | Control de acceso | `planta-libre.control-acceso.reserva-confirmada` | `reserva.confirmada` | Habilita la tarjeta del cliente en la puerta del espacio para la franja reservada, a través del puerto `ControlAcceso` |
-| Auditoría | `planta-libre.auditoria.reservas` | `reserva.*` | Registra `RESERVA_CONFIRMADA` en la bitácora, con el código, el espacio, la franja y cómo se confirmó |
+| Auditoría | `planta-libre.auditoria.reservas` | `reserva.*` | Registra `RESERVA_CONFIRMADA` o `RESERVA_CANCELADA` en la bitácora, con el código, el espacio, la franja y cómo terminó la reserva |
 
-Los tres heredan de `SuscriptorEventos` (patrón Template Method), que fija el orden de lo común. Cada uno solo dice qué cola lee y qué hace con el evento:
+Los dos primeros heredan de `SuscriptorEventos` (patrón Template Method), que fija el orden de lo común. Cada uno solo dice qué cola lee y qué hace con el evento:
 
 1. verifica la firma;
 2. convierte el JSON;
 3. dentro de una transacción, marca el mensaje como procesado **por ese suscriptor** y lo procesa.
+
+La auditoría usa el mismo esqueleto, pero su cola escucha todo el tópico, así que después de convertir el JSON decide qué evento recibió: `ReservaConfirmada` o `ReservaCancelada`. Un evento que no conoce se rechaza hacia su DLQ en lugar de descartarse en silencio.
+
+### La cancelación también pasa por el tópico
+
+Una reserva no solo se confirma: también se cancela, la cancela el cliente, la elimina un administrador, o la barre un bloqueo del espacio. `Cancelaciones` es el único camino por el que una reserva deja de ocupar su franja, así que ahí se publica `ReservaCancelada` y `OutboxEventos` la guarda en `eventos_salientes` con la clave `reserva.cancelada`, en la misma transacción que el reembolso y el cambio de estado.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cancelaciones
+    participant DB as PostgreSQL
+    participant REL as RelayEventos
+    participant EX as planta-libre.eventos<br/>(tópico)
+    participant AU as Auditoría
+
+    C->>DB: reintegro + reserva CANCELADA + INSERT eventos_salientes (misma transacción)
+    Note over C,DB: el mail al cliente sale después del commit (AvisosDeCancelacion)
+    C->>DB: COMMIT
+    loop cada 2 s
+        REL->>DB: SELECT pendientes FOR UPDATE SKIP LOCKED
+        REL->>EX: publica reserva.cancelada (firmado, persistente)
+        EX-->>REL: confirmación del broker
+        REL->>DB: marca publicado_el
+    end
+    EX->>AU: reserva.cancelada
+    AU->>DB: marca "auditoria:id" · INSERT auditoria (RESERVA_CANCELADA)
+```
+
+Las colas de avisos y de control de acceso están atadas a `reserva.confirmada`, así que una cancelación no las despierta: solo llega a la auditoría. Si mañana el control de acceso tiene que revocar la tarjeta al cancelar, alcanza con atar esa cola también a `reserva.cancelada` y leer el evento nuevo; el publicador no se toca.
 
 ### Diagrama de secuencia
 
@@ -449,4 +479,4 @@ Sin `MENSAJERIA_HABILITADA=true` la aplicación arranca sin necesitar el broker:
 - **La pasarela y el control de acceso son simulados.** Los puertos `PasarelaPagos` y `ControlAcceso` ya están separados: un proveedor real es otro adaptador, y la pasarela real queda envuelta por `PasarelaPagosResiliente` igual que la simulada.
 - **Reintegros sincrónicos.** Al cancelar, el reintegro se pide a la pasarela dentro de la misma transacción (ver la política de cancelación en [DominioReservas.md](DominioReservas.md)). Si no responde en 5 s, la cancelación no se aplica y se pide reintentar. Con un proveedor real conviene pasarlo también a una cola.
 - **Mails fuera del tópico.** Los mails de registro, recuperación, cancelación y edición se mandan en otro hilo, sin cola: si la aplicación se reinicia justo en ese momento, el mail se pierde. Solo el de confirmación pasa por el tópico.
-- **Un solo evento en el tópico.** Hoy se publica `reserva.confirmada`. La auditoría ya escucha `reserva.*`, así que publicar `reserva.cancelada` desde `Cancelaciones` no requiere tocar los suscriptores existentes.
+- **Dos eventos en el tópico: `reserva.confirmada` y `reserva.cancelada`.** Los dos salen por el outbox, en la misma transacción que el cambio de la reserva. La cancelación llega solo a la auditoría, que escucha `reserva.*`; el mail de cancelación sigue saliendo en proceso, después del commit, y es el próximo candidato a pasar por el tópico.

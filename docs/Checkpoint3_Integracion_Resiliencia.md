@@ -107,10 +107,10 @@ El sistema opera con dos topologías de mensajería desacopladas en RabbitMQ 3.1
    * **Garantía:** El modelo de cola punto a punto garantiza que cada solicitud de cobro sea procesada **por una única instancia consumidora**, habilitando el escalado horizontal del backend sin riesgo de duplicación de transacciones financieras.
 2. **Tópico de Eventos Pub/Sub (`planta-libre.eventos`):**
    * **Patrón:** *Publish/Subscribe* sobre un Topic Exchange con enrutamiento por comodines (`reserva.*`).
-   * **Propósito:** Distribución del evento `reserva.confirmada`. Desacopla la lógica de negocio de los múltiples sistemas interesados:
+   * **Propósito:** Distribución de los eventos de reservas: `reserva.confirmada` y `reserva.cancelada`. Desacopla la lógica de negocio de los múltiples sistemas interesados:
      * `planta-libre.avisos.reserva-confirmada`: Cola del suscriptor de notificaciones por mail.
      * `planta-libre.control-acceso.reserva-confirmada`: Cola del suscriptor que interactúa con el sistema de control de accesos físico del edificio.
-     * `planta-libre.auditoria.reservas`: Cola del suscriptor de auditoría que suscribe al patrón amplio `reserva.*`: hoy recibe `reserva.confirmada` y recibirá cualquier otro evento de reservas que se publique, sin cambios.
+     * `planta-libre.auditoria.reservas`: Cola del suscriptor de auditoría que suscribe al patrón amplio `reserva.*`: recibe `reserva.confirmada` y `reserva.cancelada`, y cualquier otro evento de reservas que se publique, sin cambios en la topología.
 
 ### 1.3 Justificación sobre Integración SOAP (Si Aplica)
 

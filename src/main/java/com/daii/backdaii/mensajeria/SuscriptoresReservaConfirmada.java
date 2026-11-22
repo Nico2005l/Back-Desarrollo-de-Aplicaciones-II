@@ -1,9 +1,6 @@
 package com.daii.backdaii.mensajeria;
 
-import com.daii.backdaii.domain.enums.EventoAuditoria;
-import com.daii.backdaii.domain.enums.ResultadoAuditoria;
 import com.daii.backdaii.domain.evento.ReservaConfirmada;
-import com.daii.backdaii.service.AuditoriaService;
 import com.daii.backdaii.service.ControlAcceso;
 import com.daii.backdaii.service.EmailService;
 import org.slf4j.Logger;
@@ -18,9 +15,9 @@ import java.text.NumberFormat;
 import java.util.Locale;
 
 /**
- * The three independent subscribers of reserva.confirmada. Each has its own queue, so one being
- * down or failing never holds the others back, and a new one is added without touching the
- * publisher.
+ * The two independent subscribers of reserva.confirmada (the audit, which listens to the whole
+ * booking topic, lives in AuditoriaDeReservas). Each has its own queue, so one being down or
+ * failing never holds the others back, and a new one is added without touching the publisher.
  */
 final class SuscriptoresReservaConfirmada {
 
@@ -88,36 +85,6 @@ final class SuscriptoresReservaConfirmada {
         protected void procesar(ReservaConfirmada r) {
             controlAcceso.habilitar(new ControlAcceso.Habilitacion(r.codigoReserva(), r.codigoEspacio(), r.email(),
                     r.inicio(), r.fin()));
-        }
-
-        @Override
-        protected Long reservaDe(ReservaConfirmada evento) {
-            return evento.reservaId();
-        }
-    }
-
-    /** Records the confirmation in the audit log, with how it happened. */
-    @Component
-    @ConditionalOnProperty(name = "app.mensajeria.habilitada", havingValue = "true")
-    static class Auditoria extends SuscriptorEventos<ReservaConfirmada> {
-
-        private final AuditoriaService auditoria;
-
-        Auditoria(Dependencias dependencias, AuditoriaService auditoria) {
-            super("auditoria", ReservaConfirmada.class, dependencias);
-            this.auditoria = auditoria;
-        }
-
-        @RabbitListener(queues = Colas.AUDITORIA)
-        public void alRecibir(Message mensaje) {
-            recibir(mensaje, Colas.AUDITORIA);
-        }
-
-        @Override
-        protected void procesar(ReservaConfirmada r) {
-            auditoria.registrar(EventoAuditoria.RESERVA_CONFIRMADA, ResultadoAuditoria.EXITO, r.email(),
-                    r.codigoReserva() + " · " + r.descripcionReserva() + " · "
-                            + (r.origen() == ReservaConfirmada.Origen.COBRO ? "cobro aprobado" : "confirmada por un administrador"));
         }
 
         @Override

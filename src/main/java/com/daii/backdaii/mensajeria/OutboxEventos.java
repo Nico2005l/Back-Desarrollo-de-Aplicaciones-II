@@ -1,5 +1,6 @@
 package com.daii.backdaii.mensajeria;
 
+import com.daii.backdaii.domain.evento.ReservaCancelada;
 import com.daii.backdaii.domain.evento.ReservaConfirmada;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +33,11 @@ class OutboxEventos {
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void alConfirmarReserva(ReservaConfirmada evento) {
         guardar(Colas.RESERVA_CONFIRMADA, evento, evento.reservaId());
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void alCancelarReserva(ReservaCancelada evento) {
+        guardar(Colas.RESERVA_CANCELADA, evento, evento.reservaId());
     }
 
     void guardar(String routingKey, Object evento, Long reservaId) {
