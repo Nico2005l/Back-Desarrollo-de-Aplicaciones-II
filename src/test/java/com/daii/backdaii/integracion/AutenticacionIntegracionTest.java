@@ -136,8 +136,22 @@ class AutenticacionIntegracionTest extends IntegracionBase {
     void unaClaveIncorrectaNoInicia() throws Exception {
         Usuario usuario = activo();
 
-        enviar("/api/auth/login", Map.of("email", usuario.getEmail(), "password", "Incorrecta-123"))
-                .andExpect(status().isUnauthorized());
+        MvcResult respuestaUsuarioExistente = enviar("/api/auth/login",
+                        Map.of("email", usuario.getEmail(), "password", "Incorrecta-123"))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+        MvcResult respuestaEmailInexistente = enviar("/api/auth/login",
+                        Map.of("email", emailNuevo(), "password", "Incorrecta-123"))
+                .andExpect(status().isUnauthorized())
+                .andReturn();
+
+        String mensajeUsuarioExistente = json.readTree(respuestaUsuarioExistente.getResponse().getContentAsString())
+                .get("message").asText();
+        String mensajeEmailInexistente = json.readTree(respuestaEmailInexistente.getResponse().getContentAsString())
+                .get("message").asText();
+        assertThat(mensajeUsuarioExistente).isEqualTo("Email o contraseña incorrectos")
+                .isEqualTo(mensajeEmailInexistente);
+
         mvc.perform(get("/api/usuarios/me")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/usuarios/me").header(HttpHeaders.AUTHORIZATION, "Bearer no.es.un.jwt"))
                 .andExpect(status().isUnauthorized());
