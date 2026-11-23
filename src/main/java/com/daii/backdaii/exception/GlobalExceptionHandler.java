@@ -44,7 +44,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ProblemDetail handleApi(ApiException ex) {
-        return Problemas.de(ex.getStatus(), ex.getMessage(), ex.getCode());
+        ProblemDetail problema = Problemas.de(ex.getStatus(), ex.getMessage(), ex.getCode());
+        if ("PASSWORD_FILTRADA".equals(ex.getCode())) {
+            problema.setProperty("errors", Map.of("password", ex.getMessage()));
+        }
+        return problema;
     }
 
     // The provider is down or slow: the client is told when to try again.
