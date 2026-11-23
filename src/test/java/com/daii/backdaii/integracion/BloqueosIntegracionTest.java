@@ -7,13 +7,16 @@ import com.daii.backdaii.domain.repository.EspacioRepository;
 import com.daii.backdaii.domain.repository.MedioPagoRepository;
 import com.daii.backdaii.domain.repository.ReservaRepository;
 import com.daii.backdaii.domain.repository.UsuarioRepository;
+import com.daii.backdaii.service.EmailService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -23,6 +26,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,6 +53,8 @@ class BloqueosIntegracionTest extends IntegracionBase {
     private MedioPagoRepository medios;
     @Autowired
     private Clock reloj;
+    @MockitoBean
+    private EmailService emailService;
 
     private Escenario escenario;
     private Espacio espacio;
@@ -84,17 +91,37 @@ class BloqueosIntegracionTest extends IntegracionBase {
     @Test
     void unBloqueoSobreReservasPideConfirmacionYDespuesLasCancela() throws Exception {
         LocalDateTime dia = escenario.diaLejano();
-        Reserva reserva = escenario.reservaEn(escenario.cliente(), espacio, dia.plusHours(10), EstadoReserva.CONFIRMADA);
+        var clienteUno = escenario.cliente();
+        clienteUno.setNombre("Cliente Uno");
+        usuarios.save(clienteUno);
+        var clienteDos = escenario.cliente();
+        clienteDos.setNombre("Cliente Dos");
+        usuarios.save(clienteDos);
+        Reserva reservaUno = escenario.reservaEn(clienteUno, espacio, dia.plusHours(10), EstadoReserva.CONFIRMADA);
+        Reserva reservaDos = escenario.reservaEn(clienteDos, espacio, dia.plusHours(11), EstadoReserva.CONFIRMADA);
 
         bloquear("ESPACIO", espacio.getId(), null, dia.plusHours(9), dia.plusHours(13), false)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("RESERVAS_AFECTADAS"))
-                .andExpect(jsonPath("$.reservas[0].id").value(reserva.getId()));
-        assertThat(escenario.estadoGuardado(reserva.getId())).isEqualTo(EstadoReserva.CONFIRMADA);
+                .andExpect(jsonPath("$.reservas[0].id").value(reservaUno.getId()));
+        assertThat(escenario.estadoGuardado(reservaUno.getId())).isEqualTo(EstadoReserva.CONFIRMADA);
+        assertThat(escenario.estadoGuardado(reservaDos.getId())).isEqualTo(EstadoReserva.CONFIRMADA);
 
         bloquear("ESPACIO", espacio.getId(), null, dia.plusHours(9), dia.plusHours(13), true)
                 .andExpect(status().isCreated());
-        assertThat(escenario.estadoGuardado(reserva.getId())).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(escenario.estadoGuardado(reservaUno.getId())).isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(escenario.estadoGuardado(reservaDos.getId())).isEqualTo(EstadoReserva.CANCELADA);
+
+        ArgumentCaptor<String> destinatarios = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> nombres = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> asuntos = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> cuerpos = ArgumentCaptor.forClass(String.class);
+        verify(emailService, times(2)).sendAvisoReserva(
+                destinatarios.capture(), nombres.capture(), asuntos.capture(), cuerpos.capture());
+        assertThat(destinatarios.getAllValues()).containsExactlyInAnyOrder(clienteUno.getEmail(), clienteDos.getEmail());
+        assertThat(nombres.getAllValues()).containsExactlyInAnyOrder("Cliente Uno", "Cliente Dos");
+        assertThat(cuerpos.getAllValues())
+                .allSatisfy(cuerpo -> assertThat(cuerpo).contains("mantenimiento: Pintura de paredes"));
     }
 
     @Test
