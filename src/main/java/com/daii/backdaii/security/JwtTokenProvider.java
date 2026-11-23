@@ -27,6 +27,7 @@ public class JwtTokenProvider {
 
     static final String TIPO_ACCESO = "acceso";
     static final String TIPO_DESAFIO = "segundo-factor";
+    private static final String EMISOR = "back-daii";
     private static final long DESAFIO_MS = 5 * 60 * 1000;
 
     private final SecretKey key;
@@ -41,6 +42,7 @@ public class JwtTokenProvider {
     public String generateToken(String email, Long id, String rol, UUID familia) {
         Date ahora = new Date();
         return Jwts.builder()
+                .issuer(EMISOR)
                 .subject(email)
                 .claim("typ", TIPO_ACCESO)
                 .claim("sid", familia.toString())
@@ -55,6 +57,7 @@ public class JwtTokenProvider {
     public String generarDesafio(String email) {
         Date ahora = new Date();
         return Jwts.builder()
+                .issuer(EMISOR)
                 .subject(email)
                 .claim("typ", TIPO_DESAFIO)
                 .issuedAt(ahora)
@@ -95,7 +98,9 @@ public class JwtTokenProvider {
             return Optional.empty();
         }
         try {
-            return Optional.of(Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload());
+            Claims claims = Jwts.parser().verifyWith(key).requireIssuer(EMISOR).build()
+                    .parseSignedClaims(token).getPayload();
+            return Optional.of(claims);
         } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
