@@ -137,11 +137,11 @@ class AutenticacionIntegracionTest extends IntegracionBase {
         Usuario usuario = activo();
 
         MvcResult respuestaUsuarioExistente = enviar("/api/auth/login",
-                        Map.of("email", usuario.getEmail(), "password", "Incorrecta-123"))
+                        Map.of("email", usuario.getEmail(), "password", "clave-invalida"))
                 .andExpect(status().isUnauthorized())
                 .andReturn();
         MvcResult respuestaEmailInexistente = enviar("/api/auth/login",
-                        Map.of("email", emailNuevo(), "password", "Incorrecta-123"))
+                        Map.of("email", emailNuevo(), "password", "clave-invalida"))
                 .andExpect(status().isUnauthorized())
                 .andReturn();
 
