@@ -113,6 +113,26 @@ class AutenticacionIntegracionTest extends IntegracionBase {
     }
 
     @Test
+    void registroRechazaClavesQueIncumplenLosRequisitosDeSeguridad() throws Exception {
+        for (String password : new String[]{"Abc123", "Password", "Password1"}) {
+            ResultActions respuesta = enviar("/api/auth/register", Map.of(
+                            "nombre", "Persona Prueba",
+                            "email", emailNuevo(),
+                            "telefono", "+54 11 5555 0000",
+                            "password", password,
+                            "rol", "CLIENTE"));
+            respuesta.andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.errors.password").exists())
+                    .andExpect(jsonPath("$.errors.password").isNotEmpty());
+            if ("Password1".equals(password)) {
+                respuesta.andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.code").value("PASSWORD_FILTRADA"))
+                        .andExpect(jsonPath("$.errors.password").isNotEmpty());
+            }
+        }
+    }
+
+    @Test
     void unaClaveIncorrectaNoInicia() throws Exception {
         Usuario usuario = activo();
 
