@@ -1,0 +1,24 @@
+# Excepciones verificadas: datos y secretos exclusivos de pruebas
+055958e996b28b77fbf95294ebf8040f6b176637:src/test/java/com/daii/backdaii/integracion/AutenticacionIntegracionTest.java:generic-api-key:112
+055958e996b28b77fbf95294ebf8040f6b176637:src/test/java/com/daii/backdaii/integracion/AutenticacionIntegracionTest.java:generic-api-key:157
+069e7b4ee4dc0601f170195e47bf8913c04b0311:src/test/java/com/daii/backdaii/integracion/CabecerasSeguridadIntegracionTest.java:generic-api-key:21
+480c971144e46b37c26a706e1c5565c807eded83:api-tests/generar_coleccion.py:generic-api-key:117
+480c971144e46b37c26a706e1c5565c807eded83:api-tests/generar_coleccion.py:generic-api-key:118
+480c971144e46b37c26a706e1c5565c807eded83:api-tests/generar_coleccion.py:generic-api-key:338
+6dbf8bcb6798261d07b06846a1b8cf7c58c5bb3b:src/test/java/com/daii/backdaii/integracion/ConsumidorCobrosIntegracionTest.java:generic-api-key:49
+6dbf8bcb6798261d07b06846a1b8cf7c58c5bb3b:src/test/java/com/daii/backdaii/integracion/IntegracionBase.java:generic-api-key:17
+8998950410c01c0e2dcec68e89c9e728ee50b0af:src/test/java/com/daii/backdaii/security/SeguridadTest.java:generic-api-key:112
+8998950410c01c0e2dcec68e89c9e728ee50b0af:src/test/java/com/daii/backdaii/security/SeguridadTest.java:generic-api-key:17
+9768a606c32fc0bc9d4bbf09b6052ed5f086e5ef:api-tests/generar_coleccion.py:generic-api-key:102
+9768a606c32fc0bc9d4bbf09b6052ed5f086e5ef:api-tests/generar_coleccion.py:generic-api-key:103
+9768a606c32fc0bc9d4bbf09b6052ed5f086e5ef:api-tests/generar_coleccion.py:generic-api-key:293
+f7ade8db4fdbea64928416c5e463fe5700ef5326:api-tests/generar_coleccion.py:generic-api-key:117
+f7ade8db4fdbea64928416c5e463fe5700ef5326:api-tests/generar_coleccion.py:generic-api-key:118
+f7ade8db4fdbea64928416c5e463fe5700ef5326:api-tests/generar_coleccion.py:generic-api-key:338
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integracion/AutenticacionIntegracionTest.java:generic-api-key:119
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integracion/AutenticacionIntegracionTest.java:generic-api-key:164
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integracion/CabecerasSeguridadIntegracionTest.java:generic-api-key:21
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integracion/IntegracionBase.java:generic-api-key:25
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integracion/MensajeriaIntegracionTest.java:generic-api-key:58
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/security/SeguridadTest.java:generic-api-key:112
+f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/security/SeguridadTest.java:generic-api-key:17
