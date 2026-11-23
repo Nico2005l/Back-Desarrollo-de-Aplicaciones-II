@@ -65,9 +65,10 @@ class LimitadorDeIntentosTest {
     @Test
     void guardaEstadoSeparadoPorClienteYPorAccion() {
         int maximo = LimiteIntentos.RECUPERAR_PASSWORD.getMaximo();
-        for (int i = 0; i <= maximo; i++) {
+        for (int i = 0; i < maximo; i++) {
             limitador.permitir(LimiteIntentos.RECUPERAR_PASSWORD, "10.0.0.1");
         }
+        assertThat(limitador.permitir(LimiteIntentos.RECUPERAR_PASSWORD, "10.0.0.1")).isFalse();
         assertThat(limitador.permitir(LimiteIntentos.RECUPERAR_PASSWORD, "10.0.0.2")).isTrue();
         assertThat(limitador.permitir(LimiteIntentos.REENVIAR_CONFIRMACION, "10.0.0.1")).isTrue();
     }
