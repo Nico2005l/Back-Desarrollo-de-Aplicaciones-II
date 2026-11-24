@@ -172,6 +172,8 @@ Probabilidad (P) e impacto (I) de 1 a 3; la prioridad es P × I.
 | Mensaje inválido | Publicar a mano en la cola un mensaje sin firma desde la consola | Va directo a la DLQ y queda registrado en la auditoría |
 | Doble clic al reservar | Reenviar el mismo POST con la misma `Idempotency-Key` (Postman: "Reservar otra vez con la misma clave") | Misma respuesta, `Idempotent-Replayed: true`, una sola reserva |
 | Edición concurrente | Dos pestañas de administrador editan la misma reserva; guardar en una y después en la otra | La segunda recibe "Alguien modificó estos datos…" (412) |
+| Broker: cuenta `guest` rechazada | Conectar con `guest/guest` por `amqps` al 5671 (pasos en [SeguridadBroker.md](SeguridadBroker.md)) | `AuthenticationFailureException: ACCESS_REFUSED - Login was refused using authentication mechanism PLAIN`, y `PLAIN login refused: user 'guest'` en el log del broker |
+| Broker: 5672 sin TLS rechazado | Conectar por el puerto 5672 sin TLS | `java.net.ConnectException: Connection refused (connect failed)`: `listeners.tcp` está apagado |
 
 ---
 

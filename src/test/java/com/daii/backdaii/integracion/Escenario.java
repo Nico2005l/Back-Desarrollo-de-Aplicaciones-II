@@ -59,8 +59,13 @@ class Escenario {
     }
 
     Usuario cliente() {
+        return cliente("Cliente de prueba");
+    }
+
+    /** A customer with a given name, for the searches that look at it. */
+    Usuario cliente(String nombre) {
         return usuarios.save(Usuario.builder()
-                .nombre("Cliente de prueba")
+                .nombre(nombre)
                 .email("cliente-" + UUID.randomUUID() + "@pruebas.plantalibre.local")
                 .password("$2a$12$noSeUsaParaIniciarSesionEnEstasPruebasXXXXXXXXXXXXXXXX")
                 .rol(Rol.CLIENTE)

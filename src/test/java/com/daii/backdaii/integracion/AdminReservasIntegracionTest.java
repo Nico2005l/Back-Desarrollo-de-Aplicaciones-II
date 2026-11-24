@@ -232,6 +232,82 @@ class AdminReservasIntegracionTest extends IntegracionBase {
     }
 
     @Test
+    void elListadoSeOrdenaPorHoraDeInicio() throws Exception {
+        // Stored out of order on purpose: the same day, 11:00 first, then 07:00 and 09:00.
+        LocalDateTime dia = LocalDateTime.now(reloj).truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusDays(63);
+        LocalDateTime tarde = dia.withHour(11);
+        LocalDateTime temprano = dia.withHour(7);
+        LocalDateTime medio = dia.withHour(9);
+        escenario.reservaEn(cliente, espacio, tarde, EstadoReserva.CONFIRMADA);
+        escenario.reservaEn(cliente, espacio, temprano, EstadoReserva.CONFIRMADA);
+        escenario.reservaEn(cliente, espacio, medio, EstadoReserva.CONFIRMADA);
+
+        var inicios = new java.util.ArrayList<LocalDateTime>();
+        listar(Map.of("q", cliente.getEmail())).get("content")
+                .forEach(n -> inicios.add(LocalDateTime.parse(n.get("inicio").asText())));
+
+        assertThat(inicios).containsExactly(temprano, medio, tarde);
+    }
+
+    @Test
+    void laBusquedaDeClientesEncuentraPorNombre() throws Exception {
+        Usuario porNombre = escenario.cliente("Zoe Quintana");
+
+        // Partial and case-insensitive: the box sends whatever the administrator typed.
+        mvc.perform(get("/api/admin/clientes").with(comoAdmin()).param("q", "quintana"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(porNombre.getId()))
+                .andExpect(jsonPath("$[0].nombre").value("Zoe Quintana"));
+
+        // Only customers come back: "admin@" is in the administrator's e-mail and still returns nobody.
+        assertThat(json.readTree(mvc.perform(get("/api/admin/clientes").with(comoAdmin()).param("q", "admin@"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())).isEmpty();
+    }
+
+    @Test
+    void elMotivoNecesitaAlMenosDiezCaracteres() throws Exception {
+        Reserva reserva = escenario.reservaEn(cliente, espacio, escenario.franjaReservable(), EstadoReserva.PENDIENTE);
+        Long reservaId = reserva.getId();
+
+        // Nine characters after trimming are not enough...
+        guardar(put("/api/admin/reservas/" + reservaId), cliente.getId(), espacio.getId(), reserva.getInicio(),
+                EstadoReserva.CONFIRMADA, "123456789")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MOTIVO_REQUERIDO"));
+        // ...and neither is a blank one, however long.
+        guardar(put("/api/admin/reservas/" + reservaId), cliente.getId(), espacio.getId(), reserva.getInicio(),
+                EstadoReserva.CONFIRMADA, "          ")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MOTIVO_REQUERIDO"));
+        assertThat(escenario.estadoGuardado(reservaId)).isEqualTo(EstadoReserva.PENDIENTE);
+
+        // Ten go through, and are kept with the change.
+        guardar(put("/api/admin/reservas/" + reservaId), cliente.getId(), espacio.getId(), reserva.getInicio(),
+                EstadoReserva.CONFIRMADA, "1234567890")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cambios[0].motivo").value("1234567890"));
+        assertThat(escenario.estadoGuardado(reservaId)).isEqualTo(EstadoReserva.CONFIRMADA);
+    }
+
+    @Test
+    void elClienteVeElMotivoDeLaEdicionEnSuDetalle() throws Exception {
+        Reserva reserva = escenario.reservaEn(cliente, espacio, escenario.franjaReservable(), EstadoReserva.CONFIRMADA);
+        String motivo = "El cliente pidió otro horario por teléfono";
+
+        guardar(put("/api/admin/reservas/" + reserva.getId()), cliente.getId(), espacio.getId(),
+                escenario.franjaReservable(), null, motivo)
+                .andExpect(status().isOk());
+
+        // The customer's own detail, not the administrator's form.
+        mvc.perform(get("/api/reservas/{id}", reserva.getId())
+                        .with(como(cliente.getEmail(), com.daii.backdaii.domain.enums.Rol.CLIENTE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cambios[0].motivo").value(motivo))
+                .andExpect(jsonPath("$.cambios[0].autor").value("Administrador Planta Libre"))
+                .andExpect(jsonPath("$.cambios[0].detalle").value(org.hamcrest.Matchers.containsString("Horario:")));
+    }
+
+    @Test
     void laBusquedaDeClientesEncuentraPorEmail() throws Exception {
         mvc.perform(get("/api/admin/clientes").with(comoAdmin()).param("q", cliente.getEmail()))
                 .andExpect(status().isOk())

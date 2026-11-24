@@ -205,7 +205,7 @@ El controlador no debería conocer ese orden. La fachada lo encapsula detrás de
 
 ## 6. Seguridad
 
-Los criterios SEC-01 a SEC-10 están implementados. Sus pruebas (`SeguridadTest`, `SesionesTest`, `LimitadorDeIntentosTest`, `AutenticacionIntegracionTest`, `MensajeriaIntegracionTest`) se cruzan criterio por criterio en la [matriz de trazabilidad](MatrizTrazabilidad.md). Todos tienen prueba automatizada, con dos excepciones: el rechazo de `guest` y de AMQP sin TLS (SEC-07) se verifica en la configuración del broker, y el escaneo de secretos del historial (SEC-10) espera a gitleaks.
+Los criterios SEC-01 a SEC-10 están implementados. Sus pruebas (`SeguridadTest`, `SesionesTest`, `LimitadorDeIntentosTest`, `AutenticacionIntegracionTest`, `MensajeriaIntegracionTest`) se cruzan criterio por criterio en la [matriz de trazabilidad](MatrizTrazabilidad.md). Todos tienen prueba automatizada, con dos excepciones: el rechazo de `guest` y de AMQP sin TLS (SEC-07) tiene evidencia reproducible en [SeguridadBroker.md](SeguridadBroker.md), y el escaneo de secretos del historial (SEC-10) espera a gitleaks.
 
 | Criterio | Qué hace |
 |---|---|
