@@ -62,7 +62,7 @@ public class PwnedPasswordsCliente implements ConsultaFiltraciones {
 
     static String sha1(String texto) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-1").digest(texto.getBytes(StandardCharsets.UTF_8));
+            byte[] digest = MessageDigest.getInstance("SHA-1").digest(texto.getBytes(StandardCharsets.UTF_8)); // NOSONAR java:S4790 - the Pwned Passwords range API is keyed by SHA-1; only the first 5 hex characters leave the server
             return HexFormat.of().formatHex(digest).toUpperCase(Locale.ROOT);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);

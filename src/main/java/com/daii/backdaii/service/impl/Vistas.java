@@ -122,7 +122,7 @@ final class Vistas {
                 r.estadoEn(ahora),
                 r.getInicio(),
                 r.getFin(),
-                (int) Duration.between(r.getInicio(), r.getFin()).toMinutes(),
+                (int) Duration.between(r.getInicio(), r.getFin()).toMinutes(), // NOSONAR java:S8700 - local wall-clock times of Buenos Aires by design (no daylight saving time)
                 espacioRef(espacio),
                 ref(piso),
                 ref(edificio),

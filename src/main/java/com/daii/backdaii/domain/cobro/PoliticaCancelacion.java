@@ -31,7 +31,7 @@ public final class PoliticaCancelacion {
         if (quien == Quien.ADMINISTRADOR) {
             return 100;
         }
-        Duration anticipacion = Duration.between(ahora, inicio);
+        Duration anticipacion = Duration.between(ahora, inicio); // NOSONAR java:S8700 - local wall-clock times of Buenos Aires by design (no daylight saving time)
         if (anticipacion.compareTo(SIN_CARGO) >= 0) {
             return 100;
         }

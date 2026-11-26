@@ -32,7 +32,7 @@ final class SuscriptoresReservaConfirmada {
         private static final Logger log = LoggerFactory.getLogger(Avisos.class);
         private final EmailService emailService;
 
-        Avisos(Dependencias dependencias, EmailService emailService) {
+        Avisos(Dependencias dependencias, EmailService emailService) { // NOSONAR java:S9352 - only one EmailService exists at a time (app.mail.provider selects it)
             super("avisos", ReservaConfirmada.class, dependencias);
             this.emailService = emailService;
         }

@@ -32,7 +32,7 @@ class MonitorDlq {
     private final String emailAlertas;
     private final java.util.Map<String, AtomicLong> ultimaCantidad = new java.util.concurrent.ConcurrentHashMap<>();
 
-    MonitorDlq(AmqpAdmin admin, AuditoriaService auditoria, EmailService emailService,
+    MonitorDlq(AmqpAdmin admin, AuditoriaService auditoria, EmailService emailService, // NOSONAR java:S9352 - only one EmailService exists at a time (app.mail.provider selects it)
                @Value("${app.alertas.email:}") String emailAlertas) {
         this.admin = admin;
         this.auditoria = auditoria;

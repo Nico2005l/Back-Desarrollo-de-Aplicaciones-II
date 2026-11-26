@@ -145,6 +145,6 @@ class Escenario {
     }
 
     private static boolean esFinDeSemana(LocalDate dia) {
-        return dia.getDayOfWeek() == DayOfWeek.SATURDAY || dia.getDayOfWeek() == DayOfWeek.SUNDAY;
+        return java.util.EnumSet.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY).contains(dia.getDayOfWeek());
     }
 }

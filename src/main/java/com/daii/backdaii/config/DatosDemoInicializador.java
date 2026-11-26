@@ -166,7 +166,7 @@ public class DatosDemoInicializador implements ApplicationRunner {
 
         for (EspacioDemo espacio : espacios) {
             // Deterministic per space and day: the same demo every time the window is rebuilt.
-            Random rnd = new Random(dia.toEpochDay() * 7_919L + espacio.id());
+            Random rnd = new Random(dia.toEpochDay() * 7_919L + espacio.id()); // NOSONAR java:S2245 - fixed seed on purpose: the demo data must be the same on every start; nothing secret depends on it
             List<Intervalo> tomados = ocupado.computeIfAbsent(espacio.id(), id -> new ArrayList<>());
             int apertura = espacio.apertura().getHour() * 2 + (espacio.apertura().getMinute() >= 30 ? 1 : 0);
             int cierre = espacio.cierre().getHour() * 2 + (espacio.cierre().getMinute() >= 30 ? 1 : 0);

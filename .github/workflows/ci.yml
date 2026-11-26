@@ -26,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@v3
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: "false"
@@ -92,7 +92,7 @@ jobs:
           python-version: "3.12"
 
       - name: Herramientas
-        run: pip install "schemathesis>=4,<5" "bcrypt>=4,<5"
+        run: pip install --only-binary :all: "schemathesis==4.34.2" "bcrypt==4.3.0"
 
       - name: Secretos de esta corrida
         run: |
@@ -128,7 +128,7 @@ jobs:
 
       - name: Colección de Postman (Newman)
         run: |
-          npx --yes newman@6.2.1 run api-tests/PlantaLibre.postman_collection.json \
+          npx --yes --ignore-scripts newman@6.2.1 run api-tests/PlantaLibre.postman_collection.json \
             -e api-tests/out/entorno.json --export-environment api-tests/out/entorno-final.json \
             --reporters cli,junit --reporter-junit-export api-tests/out/newman.xml
 

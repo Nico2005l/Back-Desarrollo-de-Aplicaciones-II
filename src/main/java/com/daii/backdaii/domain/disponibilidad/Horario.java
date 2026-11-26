@@ -4,13 +4,17 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.EnumSet;
+import java.util.Set;
 
 /** Opening hours of a building: the same every weekday; buildings are closed on weekends. */
 public record Horario(LocalTime apertura, LocalTime cierre) {
 
+    private static final Set<DayOfWeek> FIN_DE_SEMANA = EnumSet.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
+
     public boolean abre(LocalDate fecha) {
         DayOfWeek dia = fecha.getDayOfWeek();
-        return dia != DayOfWeek.SATURDAY && dia != DayOfWeek.SUNDAY;
+        return !FIN_DE_SEMANA.contains(dia);
     }
 
     /** The first day, from {@code fecha} on, the building opens. */

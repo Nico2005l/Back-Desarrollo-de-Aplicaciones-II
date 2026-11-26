@@ -39,11 +39,11 @@ public class RecifradoCampos implements ApplicationRunner {
         String prefijo = "enc:" + cifrado.versionActual() + ":%";
         for (var tabla : CAMPOS.entrySet()) {
             for (String columna : tabla.getValue()) {
-                List<Map<String, Object>> filas = jdbc.queryForList("SELECT id, " + columna + " AS valor FROM " + tabla.getKey()
+                List<Map<String, Object>> filas = jdbc.queryForList("SELECT id, " + columna + " AS valor FROM " + tabla.getKey() // NOSONAR java:S2077 - table and column names come from the CAMPOS constant; values are bound
                         + " WHERE " + columna + " IS NOT NULL AND " + columna + " NOT LIKE ?", prefijo);
                 for (Map<String, Object> fila : filas) {
                     String nuevo = cifrado.cifrar(cifrado.descifrar((String) fila.get("valor")));
-                    jdbc.update("UPDATE " + tabla.getKey() + " SET " + columna + " = ? WHERE id = ?", nuevo, fila.get("id"));
+                    jdbc.update("UPDATE " + tabla.getKey() + " SET " + columna + " = ? WHERE id = ?", nuevo, fila.get("id")); // NOSONAR java:S2077 - identifiers from the CAMPOS constant; values are bound
                 }
                 total += filas.size();
             }

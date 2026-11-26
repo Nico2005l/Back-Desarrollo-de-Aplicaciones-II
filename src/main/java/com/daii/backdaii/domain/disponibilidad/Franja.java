@@ -25,6 +25,6 @@ public record Franja(LocalDateTime inicio, LocalDateTime fin) {
     }
 
     public Duration duracion() {
-        return Duration.between(inicio, fin);
+        return Duration.between(inicio, fin); // NOSONAR java:S8700 - local wall-clock times of Buenos Aires by design (no daylight saving time)
     }
 }

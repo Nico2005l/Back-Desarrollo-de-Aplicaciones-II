@@ -153,10 +153,10 @@ public class MotorDisponibilidad {
 
     private static Duration distancia(Franja hueco, LocalDateTime referencia) {
         if (hueco.inicio().isAfter(referencia)) {
-            return Duration.between(referencia, hueco.inicio());
+            return Duration.between(referencia, hueco.inicio()); // NOSONAR java:S8700 - local wall-clock times of Buenos Aires by design (no daylight saving time)
         }
         if (!hueco.fin().isAfter(referencia)) {
-            return Duration.between(hueco.fin(), referencia);
+            return Duration.between(hueco.fin(), referencia); // NOSONAR java:S8700 - local wall-clock times of Buenos Aires by design (no daylight saving time)
         }
         return Duration.ZERO;
     }

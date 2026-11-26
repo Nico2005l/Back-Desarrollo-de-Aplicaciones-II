@@ -44,7 +44,7 @@ public final class Totp {
 
     public static String codigo(String secreto, long paso) {
         try {
-            Mac mac = Mac.getInstance("HmacSHA1");
+            Mac mac = Mac.getInstance("HmacSHA1"); // NOSONAR java:S4790 - HMAC-SHA1 is the TOTP algorithm of RFC 6238 that authenticator apps implement
             mac.init(new SecretKeySpec(desdeBase32(secreto), "HmacSHA1"));
             byte[] hash = mac.doFinal(ByteBuffer.allocate(8).putLong(paso).array());
             int desplazamiento = hash[hash.length - 1] & 0x0f;
