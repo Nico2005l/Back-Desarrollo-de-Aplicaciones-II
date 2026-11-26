@@ -2,37 +2,38 @@
 
 ## Resumen ejecutivo
 
-Se realizaron dos análisis baseline (frontend y API) y un escaneo activo autenticado de la API mediante `zap-api-scan.py` y OpenAPI. El frontend conserva tres alertas Medium pendientes: falta de CSP, protección anti-clickjacking y SRI para una hoja de estilos externa. En el backend se incorporó `Cross-Origin-Resource-Policy: same-origin`; la prueba de integración correspondiente pasó en sus tres casos y el retest no volvió a listar la alerta CORP.
+Se realizaron dos análisis baseline (frontend y API) y un escaneo activo autenticado de la API mediante `zap-api-scan.py` y OpenAPI. El primer baseline del frontend dio tres alertas Medium (falta de CSP, de protección anti-clickjacking y de SRI en la hoja de estilos de Google Fonts). Las tres se corrigieron y el retest del frontend ya no las lista: queda en 0 High y 0 Medium. En el backend se incorporó `Cross-Origin-Resource-Policy: same-origin`; la prueba de integración correspondiente pasó en sus tres casos y el retest no volvió a listar la alerta CORP.
 
 El retest de API importó 48 rutas y analizó 142 URLs, sin nuevos `FAIL` ni `WARN`. Sin embargo, el informe registra 163 respuestas 401 y un 99 % de respuestas 4xx. Aunque el análisis se configuró con JWT, muchas solicitudes no fueron autorizadas; por eso no se puede afirmar que todas las operaciones protegidas se probaron correctamente.
 
 ## Alcance y resultados
 
-Los resultados corresponden a `zap-frontend.html`, `zap-api-baseline.html`, `zap-api-retest2.html` y `zap-api-retest2.json`.
+Los resultados están en [docs/evidencia/zap/](evidencia/zap/): `zap-frontend.html`, `zap-frontend-retest.html` (y su `.json`), `zap-api-baseline.html`, `zap-api-retest2.html` y `zap-api-retest2.json`, más la configuración `zap.yaml`.
 
 | Análisis | Alcance | Alertas registradas por severidad ZAP |
 |---|---|---|
 | Baseline frontend | `http://host.docker.internal:8088` | 0 High, 3 Medium, 4 Low, 3 Informational |
+| Baseline frontend, retest (26/11) | `http://host.docker.internal:8088` | 0 High, 0 Medium, 3 Low, 3 Informational; 0 `FAIL` |
 | Baseline inicial de API | `http://host.docker.internal:8080` | 0 High, 0 Medium, 1 Low, 1 Informational |
 | API activa, retest 2 | 48 rutas OpenAPI; 142 URLs analizadas | 0 High, 0 Medium, 0 Low, 3 Informational; 0 nuevos `FAIL` y 0 nuevos `WARN` |
 
 ## Hallazgos del frontend
 
-El baseline reportó tres alertas Medium. La configuración revisada de Nginx no define CSP ni `X-Frame-Options`, y el HTML mantiene el enlace externo a Google Fonts sin `integrity`. Por ello, las tres quedan pendientes en el frontend.
+El baseline reportó tres alertas Medium, corregidas en el frontend y verificadas con un segundo baseline (`zap-frontend-retest.html`), donde las tres reglas dan PASS.
 
 ### Content Security Policy (CSP) Header Not Set — Medium
 
-ZAP observó la ausencia de CSP en tres respuestas: página principal, `robots.txt` y `sitemap.xml`. Una CSP limita los recursos que el navegador puede cargar y ayuda a reducir el impacto de ciertos ataques XSS e inyección. El informe evidencia la falta de esa defensa, no una explotación. **Estado: pendiente.** La política CSP de `SecurityConfig` aplica a la API, no a las respuestas estáticas de Nginx.
+ZAP observó la ausencia de CSP en tres respuestas: página principal, `robots.txt` y `sitemap.xml`. Una CSP limita los recursos que el navegador puede cargar y ayuda a reducir el impacto de ciertos ataques XSS e inyección. El informe evidencia la falta de esa defensa, no una explotación. **Estado: corregido.** `nginx.conf` y `vercel.json` envían `Content-Security-Policy` con `default-src 'self'`, `script-src 'self'`, `frame-ancestors 'none'` y `object-src 'none'`. La única excepción es `style-src-attr 'unsafe-inline'`, porque React escribe los estilos en línea con el atributo `style`; los scripts no tienen excepciones.
 
 ### Missing Anti-clickjacking Header — Medium
 
-En la página principal ZAP no encontró `X-Frame-Options` ni CSP `frame-ancestors`. Sin una restricción de enmarcado, un sitio externo podría mostrar la aplicación dentro de un frame y engañar al usuario para que interactúe con ella. **Estado: pendiente** en la configuración del frontend.
+En la página principal ZAP no encontró `X-Frame-Options` ni CSP `frame-ancestors`. Sin una restricción de enmarcado, un sitio externo podría mostrar la aplicación dentro de un frame y engañar al usuario para que interactúe con ella. **Estado: corregido** con `X-Frame-Options: DENY` y `frame-ancestors 'none'` en la CSP.
 
 ### Sub Resource Integrity Attribute Missing — Medium
 
-El informe identificó tres instancias de la hoja de estilos de Google Fonts (`fonts.googleapis.com`) sin atributo `integrity`. SRI permite al navegador comprobar el contenido de recursos externos. El hallazgo no demuestra que el proveedor esté comprometido ni que se haya servido contenido malicioso. El enlace en `index.html` sigue sin `integrity`. **Estado: pendiente.**
+El informe identificó tres instancias de la hoja de estilos de Google Fonts (`fonts.googleapis.com`) sin atributo `integrity`. SRI permite al navegador comprobar el contenido de recursos externos. El hallazgo no demuestra que el proveedor esté comprometido ni que se haya servido contenido malicioso. **Estado: corregido** de raíz: las fuentes IBM Plex se sirven con la aplicación (paquetes `@fontsource`), así que ya no hay ningún recurso externo que verificar. Eso también permite que la CSP quede en `'self'`.
 
-El mismo baseline registró cuatro tipos de alerta **Low**: COEP, COOP, CORP y Permissions Policy ausentes o inválidos. También registró tres alertas **Informational**: comentario sospechoso, detección de aplicación web moderna y contenido almacenable/cacheable. Se mantienen con la severidad asignada por ZAP; estos avisos no prueban por sí solos una vulnerabilidad explotable ni exposición de información sensible.
+El primer baseline registró cuatro tipos de alerta **Low**: COEP, COOP, CORP y Permissions Policy ausentes o inválidos. `Permissions-Policy` ya se envía; en el retest quedan COEP, COOP y CORP como Low, aceptadas: el frontend no usa recursos de otros orígenes ni ventanas emergentes, y esas cabeceras no cambian su exposición. También registró tres alertas **Informational**: comentario sospechoso, detección de aplicación web moderna y contenido almacenable/cacheable. Se mantienen con la severidad asignada por ZAP; estos avisos no prueban por sí solos una vulnerabilidad explotable ni exposición de información sensible.
 
 ## API: resultados y corrección
 
