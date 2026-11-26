@@ -22,3 +22,7 @@ f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integra
 f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/integracion/MensajeriaIntegracionTest.java:generic-api-key:58
 f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/security/SeguridadTest.java:generic-api-key:112
 f7ade8db4fdbea64928416c5e463fe5700ef5326:src/test/java/com/daii/backdaii/security/SeguridadTest.java:generic-api-key:17
+# Contraseñas inválidas de prueba ('Incorrecta-123' en el login fallido y 'Unica-Prueba-8Kzq29' en el registro con Pwned caído): no son secretos
+02d00d3a18ac3f27990a3fb99184053a4152818b:src/test/java/com/daii/backdaii/integracion/AutenticacionIntegracionTest.java:generic-api-key:140
+02d00d3a18ac3f27990a3fb99184053a4152818b:src/test/java/com/daii/backdaii/integracion/AutenticacionIntegracionTest.java:generic-api-key:144
+96daacf058a80ddafdb72a9cab32308e4665457d:src/test/java/com/daii/backdaii/integracion/PwnedPasswordsCaidoIntegracionTest.java:generic-api-key:39
