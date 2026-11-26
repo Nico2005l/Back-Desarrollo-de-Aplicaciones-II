@@ -84,6 +84,10 @@ spring:
 springdoc:
   api-docs:
     path: /v3/api-docs
+    # springdoc 2.8 (Spring Boot 3.5) moved the default to OpenAPI 3.1, where a field that can be
+    # null has to say so with type: [string, "null"]: the contract tests then reject every optional
+    # field the API answers as null. 3.0 keeps the contract the clients and Schemathesis were built on.
+    version: openapi_3_0
   override-with-generic-response: false
   default-produces-media-type: application/json
 
