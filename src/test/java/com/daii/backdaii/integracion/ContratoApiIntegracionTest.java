@@ -53,6 +53,16 @@ class ContratoApiIntegracionTest extends IntegracionBase {
                 .andExpect(jsonPath("$.instance").value("/api/empresas"));
     }
 
+    /** Found by Schemathesis: an id with an encoded '%' is rejected by the firewall, and the answer follows the contract too. */
+    @Test
+    void unaUrlRechazadaPorElFirewallTambienSigueProblemDetails() throws Exception {
+        mvc.perform(get(java.net.URI.create("/api/usuarios/me/medios-pago/%25")).with(como("cualquiera@pruebas.local", Rol.CLIENTE)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("La dirección del pedido no es válida"));
+    }
+
     @Test
     void unParametroObligatorioFaltanteEsUnPedidoInvalido() throws Exception {
         mvc.perform(get("/api/admin/agenda").with(comoAdmin()))

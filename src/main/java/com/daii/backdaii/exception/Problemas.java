@@ -59,7 +59,11 @@ public final class Problemas {
     /** For the filters that answer before any controller (authentication, rate limit, idempotency). */
     public static void escribir(HttpServletResponse respuesta, ObjectMapper json, String instancia,
                                 ProblemDetail problema) throws IOException {
-        problema.setInstance(URI.create(instancia));
+        try {
+            problema.setInstance(URI.create(instancia));
+        } catch (IllegalArgumentException e) {
+            // A path the firewall rejected may not even be a valid URI: the answer goes without instance.
+        }
         respuesta.setStatus(problema.getStatus());
         respuesta.setContentType(TIPO.toString());
         respuesta.setCharacterEncoding(StandardCharsets.UTF_8.name());

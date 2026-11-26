@@ -27,6 +27,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
@@ -57,7 +58,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.disable()) // NOSONAR java:S4502 - stateless API authenticated by a bearer token; the only cookie (refresh) is SameSite=Strict and scoped to /api/auth
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // The API only returns JSON: nothing may load, frame or be sniffed from its responses.
                 .headers(headers -> headers
@@ -103,6 +104,16 @@ public class SecurityConfig {
     private void writeError(HttpServletRequest request, HttpServletResponse response, HttpStatus status, String message)
             throws IOException {
         Problemas.escribir(response, objectMapper, request.getRequestURI(), Problemas.de(status, message));
+    }
+
+    /**
+     * A URL the firewall rejects (an encoded '%', '/' or '..', for example) gets a 400 in Problem
+     * Details, like every other error, instead of the container's error page.
+     */
+    @Bean
+    public RequestRejectedHandler requestRejectedHandler() {
+        return (request, response, ex) -> Problemas.escribir(response, objectMapper, request.getRequestURI(),
+                Problemas.de(HttpStatus.BAD_REQUEST, "La dirección del pedido no es válida"));
     }
 
     @Bean
