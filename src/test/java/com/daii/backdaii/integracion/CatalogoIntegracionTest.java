@@ -96,6 +96,54 @@ class CatalogoIntegracionTest extends IntegracionBase {
         }
     }
 
+    /** B-12.b: in every floor layout, spaces, services and structural areas stay inside the grid and never overlap. */
+    @Test
+    void laDisposicionDeCadaPisoNoTieneElementosSuperpuestosNiFueraDeLaGrilla() throws Exception {
+        List<Long> pisos = jdbc.queryForList("select id from pisos order by id", Long.class);
+        assertThat(pisos).isNotEmpty();
+        for (Long pisoId : pisos) {
+            JsonNode plano = leer(get("/api/pisos/{id}/plano", pisoId));
+            int columnas = plano.get("piso").get("columnas").asInt();
+            int filas = plano.get("piso").get("filas").asInt();
+            List<JsonNode> elementos = new java.util.ArrayList<>();
+            for (String grupo : List.of("espacios", "servicios", "areas")) {
+                plano.get(grupo).forEach(elementos::add);
+            }
+            for (int i = 0; i < elementos.size(); i++) {
+                JsonNode a = elementos.get(i).get("posicion");
+                assertThat(a.get("ancho").asInt()).as("piso %d, elemento %d: ancho", pisoId, i).isPositive();
+                assertThat(a.get("alto").asInt()).as("piso %d, elemento %d: alto", pisoId, i).isPositive();
+                assertThat(a.get("x").asInt()).as("piso %d, elemento %d: x", pisoId, i).isNotNegative();
+                assertThat(a.get("y").asInt()).as("piso %d, elemento %d: y", pisoId, i).isNotNegative();
+                assertThat(a.get("x").asInt() + a.get("ancho").asInt()).as("piso %d, elemento %d: borde derecho", pisoId, i)
+                        .isLessThanOrEqualTo(columnas);
+                assertThat(a.get("y").asInt() + a.get("alto").asInt()).as("piso %d, elemento %d: borde inferior", pisoId, i)
+                        .isLessThanOrEqualTo(filas);
+                for (int j = i + 1; j < elementos.size(); j++) {
+                    assertThat(seSuperponen(a, elementos.get(j).get("posicion")))
+                            .as("piso %d: %s se pisa con %s", pisoId, nombre(elementos.get(i)), nombre(elementos.get(j)))
+                            .isFalse();
+                }
+            }
+        }
+    }
+
+    private static boolean seSuperponen(JsonNode a, JsonNode b) {
+        return a.get("x").asInt() < b.get("x").asInt() + b.get("ancho").asInt()
+                && b.get("x").asInt() < a.get("x").asInt() + a.get("ancho").asInt()
+                && a.get("y").asInt() < b.get("y").asInt() + b.get("alto").asInt()
+                && b.get("y").asInt() < a.get("y").asInt() + a.get("alto").asInt();
+    }
+
+    private static String nombre(JsonNode elemento) {
+        for (String campo : List.of("codigo", "nombre", "etiqueta", "tipo")) {
+            if (elemento.hasNonNull(campo)) {
+                return elemento.get(campo).asText();
+            }
+        }
+        return elemento.toString();
+    }
+
     @Test
     void elPlanoMarcaOcupadoElEspacioReservadoEnLaFranjaPedida() throws Exception {
         Espacio espacio = escenario.espacio(Escenario.ESPACIO_API);
