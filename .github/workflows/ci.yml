@@ -92,7 +92,7 @@ jobs:
           python-version: "3.12"
 
       - name: Herramientas
-        run: pip install --only-binary :all: "schemathesis==4.34.2" "bcrypt==4.3.0"
+        run: pip install --only-binary ':all:' 'schemathesis==4.34.2' 'bcrypt==4.3.0'
 
       - name: Secretos de esta corrida
         run: |
