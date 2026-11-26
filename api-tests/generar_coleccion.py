@@ -270,8 +270,20 @@ usuarios = carpeta("06 Usuarios", "Perfil propio y listado para el administrador
     pedido("Editar con teléfono inválido", "PATCH", "/api/usuarios/me", 400, token="nuevoToken", cuerpo={"telefono": "abc"}),
     pedido("Perfil del administrador", "GET", "/api/usuarios/me", 200, token="adminToken",
            pruebas=guardar("adminId", "pm.response.json().id")),
-    pedido("Listado de usuarios", "GET", "/api/usuarios", 200, token="adminToken",
-           pruebas="pm.test('incluye al cliente', () => pm.expect(pm.response.json().map(u => u.email)).to.include(pm.environment.get('nuevoEmail')));"),
+    # The list is paged and ordered by id, so the customer created above is on the last page: the
+    # first request checks the page and its totals, the second one asks for a page big enough to
+    # hold every account of a test database and looks for the customer there.
+    pedido("Listado de usuarios", "GET", "/api/usuarios", 200, token="adminToken", query={"page": "0", "size": "10"},
+           pruebas="pm.test('una página de hasta 10 con sus totales', () => { const b = pm.response.json(); "
+                   "pm.expect(b.content.length).to.be.within(1, 10); pm.expect(b.page).to.eql(0); pm.expect(b.size).to.eql(10); "
+                   "pm.expect(b.totalElements).to.be.at.least(b.content.length); pm.expect(b.totalPages).to.be.at.least(1); });"),
+    pedido("Listado de usuarios: el cliente nuevo", "GET", "/api/usuarios", 200, token="adminToken", query={"page": "0", "size": "100"},
+           pruebas="pm.test('incluye al cliente', () => pm.expect(pm.response.json().content.map(u => u.email)).to.include(pm.environment.get('nuevoEmail')));"),
+    pedido("Listado de usuarios: página inexistente", "GET", "/api/usuarios", 200, token="adminToken",
+           query={"page": "100000", "size": "10"},
+           pruebas="pm.test('contenido vacío', () => pm.expect(pm.response.json().content).to.be.an('array').that.is.empty);"),
+    pedido("Listado de usuarios: size máximo", "GET", "/api/usuarios", 200, token="adminToken", query={"page": "0", "size": "100000"},
+           pruebas="pm.test('size se limita a 100', () => pm.expect(pm.response.json().size).to.eql(100));"),
     pedido("Listado de usuarios como cliente", "GET", "/api/usuarios", 403, token="nuevoToken"),
 ])
 
